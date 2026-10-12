@@ -1,122 +1,79 @@
-:host {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  background: var(--bg-alt);
-}
-
-.page {
-  --page-width: 680px;
-  display: grid;
-  gap: 18px;
-  padding-top: clamp(40px, 6vw, 72px);
-  padding-bottom: clamp(56px, 8vw, 96px);
-}
-
 .head {
-  display: grid;
-  gap: 12px;
-  margin-bottom: 14px;
-}
+  margin-bottom: 32px;
 
-.panel {
-  display: grid;
-  gap: 20px;
-  padding: clamp(20px, 4vw, 32px);
-
-  h2 {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    font-size: 22px;
-    letter-spacing: -0.02em;
+  h1 {
+    font-size: 40px;
+    margin-bottom: 8px;
   }
 }
 
+h2 {
+  margin: 28px 0 10px;
+  font-size: 20px;
+}
+
 .optional {
-  font-size: 13px;
-  font-weight: 400;
   color: var(--text-3);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.note {
+  margin-bottom: 10px;
+  font-size: 14px;
 }
 
 .key-row {
   display: flex;
-  gap: 8px;
-
-  .btn {
-    min-height: 44px;
-    border-radius: var(--radius-m);
-  }
+  align-items: center;
+  gap: 4px;
 }
 
-.input.mono {
-  font-size: 14px;
-}
-
-.toggle {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  font-size: 15px;
-  cursor: pointer;
-
-  input {
-    width: 18px;
-    height: 18px;
-    margin: 3px 0 0;
-    accent-color: var(--accent);
-  }
-
-  small {
-    display: block;
-    font-size: 13px;
-    color: var(--text-2);
-  }
-}
-
-.row {
+.row-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px 22px;
+  gap: 10px;
+  margin-top: 14px;
 }
 
-.segmented {
-  display: inline-grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+.status {
+  font-size: 14px;
+
+  &.ok {
+    color: var(--success);
+  }
+  &.bad {
+    color: var(--danger);
+  }
+}
+
+.theme .inset-row {
+  justify-content: flex-start;
+
+  span:first-of-type {
+    flex: 1;
+  }
+
+  &.on {
+    font-weight: 600;
+  }
+}
+
+.inset-row span {
+  display: flex;
+  flex-direction: column;
   gap: 2px;
-  padding: 2px;
-  border-radius: 10px;
-  background: var(--bg-inset);
-  justify-self: start;
+  flex: 1;
 
-  button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-height: 34px;
-    padding: 0 16px;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
-    font-size: 14px;
-
-    &[aria-checked='true'] {
-      background: var(--bg-elevated);
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
-      font-weight: 600;
-    }
+  em {
+    font-style: normal;
+    font-size: 13px;
+    color: var(--text-3);
+    font-weight: 400;
   }
 }
 
-@media (max-width: 420px) {
-  .segmented {
-    justify-self: stretch;
-
-    button {
-      padding: 0 8px;
-    }
-  }
+.jump {
+  margin-top: 36px;
 }

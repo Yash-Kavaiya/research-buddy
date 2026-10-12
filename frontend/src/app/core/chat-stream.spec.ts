@@ -1,26 +1,18 @@
 import { parseSse } from './chat-stream';
 
 describe('parseSse', () => {
-  it('returns complete events and keeps the unfinished tail', () => {
-    const { events, rest } = parseSse(
-      'event: text\ndata: {"type":"text","delta":"Hel"}\n\nevent: text\ndata: {"type":"text","delta":"lo"}\n\nevent: done\ndata: {"ty',
-    );
-    expect(events).toEqual([
-      { type: 'text', delta: 'Hel' },
-      { type: 'text', delta: 'lo' },
-    ]);
-    expect(rest).toBe('event: done\ndata: {"ty');
+  it('reads one server-sent event', () => {
+    expect(parseSse('event: text\ndata: {"type":"text","delta":"Hel"}')).toEqual({
+      type: 'text',
+      delta: 'Hel',
+    });
   });
 
-  it('joins a tail with the next chunk', () => {
-    const first = parseSse('event: done\ndata: {"ty');
-    const second = parseSse(first.rest + 'pe":"done"}\n\n');
-    expect(second.events).toEqual([{ type: 'done' }]);
-    expect(second.rest).toBe('');
+  it('accepts CRLF line endings', () => {
+    expect(parseSse('event: done\r\ndata: {"type":"done"}\r\n')).toEqual({ type: 'done' });
   });
 
-  it('accepts CRLF line endings and skips malformed frames', () => {
-    const { events } = parseSse('data: not json\r\n\r\ndata: {"type":"done"}\r\n\r\n');
-    expect(events).toEqual([{ type: 'done' }]);
+  it('skips a frame that is not JSON', () => {
+    expect(parseSse('data: not json')).toBeNull();
   });
 });

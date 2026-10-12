@@ -9,9 +9,7 @@ import { renderMarkdown } from '../core/markdown';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Markdown {
+  readonly source = input('');
   private readonly sanitizer = inject(DomSanitizer);
-
-  readonly source = input.required<string>();
-  // renderMarkdown sanitizes with DOMPurify; Angular's own sanitizer would strip KaTeX's inline styles.
   protected readonly html = computed(() => this.sanitizer.bypassSecurityTrustHtml(renderMarkdown(this.source())));
 }

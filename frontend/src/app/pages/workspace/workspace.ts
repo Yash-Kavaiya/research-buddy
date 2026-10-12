@@ -1,213 +1,254 @@
+import { DatePipe } from '@angular/common';
 import {
-  ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, signal, untracked, viewChild,
+  afterNextRender,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  effect,
+  inject,
+  signal,
+  viewChild,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { Router, RouterLink } from '@angular/router';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, of } from 'rxjs';
 
 import { ApiService } from '../../core/api.service';
 import { ChatStore } from '../../core/chat.store';
-import { Attachment, Conversation, Message, messageText } from '../../core/models';
+import { Attachment, Message, Thumb, messageText } from '../../core/models';
+import { ProjectsStore } from '../../core/projects.store';
 import { SettingsStore } from '../../core/settings.store';
+import { UsageStore } from '../../core/usage.store';
 import { Icon } from '../../shared/icon';
 import { Markdown } from '../../shared/markdown';
 
+const STARTERS = [
+  'Find recent papers on retrieval-augmented generation',
+  'Turn this interest into a FINER research question: federated learning for medical imaging',
+  'How many participants do I need for a two-group t-test with d = 0.5 and power 0.8?',
+  'Check whether these citations are real (paste BibTeX or a reference list)',
+];
+
 const MAX_FILES = 5;
-const MAX_FILE_BYTES = 3_000_000;
-const TEXT_TYPES = /\.(bib|csv|tsv|tex|txt|md|json|ris|ya?ml)$/i;
+const MAX_BYTES = 3_000_000;
 
 @Component({
   selector: 'app-workspace',
-  imports: [RouterLink, Icon, Markdown],
+  imports: [RouterLink, Icon, Markdown, DatePipe],
   templateUrl: './workspace.html',
   styleUrl: './workspace.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Workspace {
-  private readonly api = inject(ApiService);
+  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  protected readonly chats = inject(ChatStore);
+  private readonly api = inject(ApiService);
   protected readonly settings = inject(SettingsStore);
+  protected readonly chat = inject(ChatStore);
+  protected readonly projects = inject(ProjectsStore);
+  private readonly usage = inject(UsageStore);
 
-  /** Bound from ?skill= and ?prompt=, set by links on the landing and skill pages. */
-  readonly skill = input<string>();
-  readonly prompt = input<string>();
-
-  private readonly scroller = viewChild<ElementRef<HTMLElement>>('scroller');
-  private readonly textarea = viewChild<ElementRef<HTMLTextAreaElement>>('box');
-
-  protected readonly catalog = toSignal(this.api.catalog().pipe(catchError(() => of(null))), { initialValue: null });
+  protected readonly catalog = toSignal(this.api.catalog().pipe(catchError(() => of(null))), {
+    initialValue: null,
+  });
+  protected readonly starters = STARTERS;
   protected readonly draft = signal('');
   protected readonly sidebarOpen = signal(false);
-  protected readonly fileError = signal('');
+  protected readonly expanded = signal<Record<string, boolean>>({});
   protected readonly copied = signal<string | null>(null);
+  protected readonly attachError = signal('');
+  protected readonly pinnedOpen = signal(false);
+  protected readonly raw = signal<Record<string, boolean>>({});
+  protected readonly projectName = signal('');
+  protected readonly namingProject = signal(false);
+  protected readonly notice = signal('');
 
-  protected readonly conversation = this.chats.active;
-  protected readonly messages = computed(() => this.conversation()?.messages ?? []);
-  protected readonly pinned = computed(() => {
-    const name = this.conversation()?.skill;
-    return name ? (this.catalog()?.skills.find((s) => s.name === name) ?? null) : null;
-  });
-  protected readonly skillGroups = computed(() => {
-    const data = this.catalog();
-    return data ? data.stages.map((st) => ({ ...st, skills: data.skills.filter((s) => s.stage_index === st.index) })) : [];
-  });
-  protected readonly canSend = computed(() => !!this.draft().trim() && !this.chats.busy() && this.settings.ready());
-
-  protected readonly suggestions = [
-    'Find recent papers on retrieval augmented generation for question answering',
-    'How many participants do I need for a two-group comparison with d = 0.5 and 90% power?',
-    'Help me turn my interest in urban heat islands into a research question',
-    'I have results and a deadline in three weeks. What do I do next?',
-  ];
+  private readonly scroller = viewChild<ElementRef<HTMLElement>>('scroller');
+  private stickToBottom = true;
 
   constructor() {
-    // A link such as /workspace?skill=paper-search&prompt=... opens a fresh chat set up that way.
-    effect(() => {
-      const skill = this.skill();
-      const prompt = this.prompt();
-      if (!skill && !prompt) return;
-      untracked(() => {
-        this.chats.create(skill ?? null);
-        if (prompt) this.draft.set(prompt);
-        this.router.navigate([], { queryParams: {}, replaceUrl: true });
-        this.focusBox();
-      });
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      const skill = params.get('skill');
+      if (skill) {
+        this.chat.create(skill);
+        void this.router.navigate(['/workspace'], { replaceUrl: true });
+        return;
+      }
+      if (!this.chat.active()) this.chat.create();
     });
-
-    // Follow the answer as it streams, unless the reader has scrolled up.
-    let lastId: string | null = null;
+    afterNextRender(() => this.scrollIfNeeded());
     effect(() => {
-      const conversation = this.conversation();
-      this.messages();
-      const el = this.scroller()?.nativeElement;
-      if (!el) return;
-      const switched = conversation?.id !== lastId;
-      lastId = conversation?.id ?? null;
-      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
-      if (switched || nearBottom) requestAnimationFrame(() => (el.scrollTop = el.scrollHeight));
+      this.chat.active()?.messages.length;
+      this.chat.busy();
+      queueMicrotask(() => this.scrollIfNeeded());
     });
   }
 
-  protected newChat(): void {
-    this.chats.create();
-    this.sidebarOpen.set(false);
-    this.focusBox();
+  protected onScroll(event: Event): void {
+    const el = event.target as HTMLElement;
+    this.stickToBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
   }
 
-  protected open(conversation: Conversation): void {
-    this.chats.select(conversation.id);
-    this.sidebarOpen.set(false);
+  protected onDraft(event: Event): void {
+    const el = event.target as HTMLTextAreaElement;
+    this.draft.set(el.value);
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }
 
-  protected send(text = this.draft()): void {
-    if (!text.trim() || this.chats.busy() || !this.settings.ready()) return;
-    this.draft.set('');
-    this.resize();
-    const el = this.scroller()?.nativeElement;
-    if (el) requestAnimationFrame(() => (el.scrollTop = el.scrollHeight));
-    void this.chats.send(text);
-  }
-
-  protected onKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
-      event.preventDefault();
-      this.send();
+  protected onEnter(event: Event): void {
+    const ke = event as KeyboardEvent;
+    if (ke.key === 'Enter' && !ke.shiftKey) {
+      ke.preventDefault();
+      void this.submit();
     }
   }
 
-  protected onInput(value: string): void {
-    this.draft.set(value);
-    this.resize();
+  protected async submit(): Promise<void> {
+    const text = this.draft().trim();
+    if (!text) return;
+    this.draft.set('');
+    this.stickToBottom = true;
+    await this.chat.send(text);
+    this.scrollIfNeeded();
   }
 
-  protected pin(name: string): void {
-    if (!this.conversation()) this.chats.create(name || null);
-    else this.chats.setSkill(name || null);
+  protected useStarter(text: string): void {
+    this.draft.set(text);
   }
 
-  protected async addFiles(input: HTMLInputElement): Promise<void> {
+  protected newChat(projectId: string | null = null): void {
+    this.chat.create(null, projectId);
+    this.sidebarOpen.set(false);
+  }
+
+  protected chatsIn(projectId: string | null) {
+    return this.chat.conversations().filter((c) => (c.projectId ?? null) === projectId);
+  }
+
+  protected addProject(): void {
+    const project = this.projects.create(this.projectName());
+    this.projectName.set('');
+    this.namingProject.set(false);
+    if (project) this.chat.create(this.chat.active()?.skill ?? null, project.id);
+  }
+
+  protected deleteProject(id: string): void {
+    this.projects.remove(id);
+    this.chat.releaseProject(id);
+  }
+
+  protected selectChat(id: string): void {
+    this.chat.select(id);
+    this.sidebarOpen.set(false);
+  }
+
+  protected setSkill(name: string): void {
+    this.chat.setSkill(name || null);
+    this.pinnedOpen.set(false);
+  }
+
+  protected toggleActivity(id: string): void {
+    this.expanded.update((m) => ({ ...m, [id]: !m[id] }));
+  }
+
+  protected async copy(id: string, text: string, label = 'copy'): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text);
+      this.copied.set(`${label}:${id}`);
+      setTimeout(() => this.copied.update((c) => (c === `${label}:${id}` ? null : c)), 1600);
+    } catch {
+      this.notice.set('Could not copy.');
+    }
+  }
+
+  protected toggleMarkdown(id: string): void {
+    this.raw.update((m) => ({ ...m, [id]: !m[id] }));
+  }
+
+  protected async share(message: Message): Promise<void> {
+    const text = messageText(message);
+    const title = this.chat.active()?.title ?? 'Research Buddy';
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text });
+        this.notice.set('Shared.');
+        return;
+      }
+      await this.copy(message.id, `# ${title}\n\n${text}`, 'share');
+      this.notice.set('Markdown copied to share.');
+    } catch {
+      this.notice.set('Share was cancelled.');
+    }
+  }
+
+  protected branch(id: string): void {
+    const next = this.chat.branchAt(id);
+    if (next) this.notice.set('Branched into a new chat.');
+  }
+
+  protected rate(id: string, thumb: Thumb): void {
+    this.chat.rateMessage(id, thumb);
+    this.usage.submit(thumb, '', 'message');
+    this.api.feedback(thumb, '', 'message').subscribe({ error: () => undefined });
+  }
+
+  protected messagePlain(id: string): string {
+    const msg = this.chat.active()?.messages.find((m) => m.id === id);
+    return msg ? messageText(msg) : '';
+  }
+
+  protected needsSettings(error?: string): boolean {
+    const t = (error ?? '').toLowerCase();
+    return t.includes('api key') || t.includes('settings') || t.includes('unauthorized');
+  }
+
+  protected async onFiles(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
     const files = Array.from(input.files ?? []);
     input.value = '';
-    this.fileError.set('');
-    const room = MAX_FILES - this.chats.activeAttachments().length;
-    if (files.length > room) this.fileError.set(`You can attach up to ${MAX_FILES} files per conversation.`);
-    const added: Attachment[] = [];
-    for (const file of files.slice(0, Math.max(room, 0))) {
-      if (file.size > MAX_FILE_BYTES) {
-        this.fileError.set(`${file.name} is larger than 3 MB.`);
+    this.attachError.set('');
+    const existing = this.chat.activeAttachments().length;
+    if (existing + files.length > MAX_FILES) {
+      this.attachError.set(`Up to ${MAX_FILES} files per chat.`);
+      return;
+    }
+    const attachments: Attachment[] = [];
+    for (const file of files) {
+      if (file.size > MAX_BYTES) {
+        this.attachError.set(`${file.name} is larger than 3 MB.`);
         continue;
       }
-      const name = safeName(file.name);
-      if (TEXT_TYPES.test(name)) {
-        added.push({ name, content: await file.text(), encoding: 'text', size: file.size });
-      } else if (/\.pdf$/i.test(name)) {
-        added.push({ name, content: toBase64(await file.arrayBuffer()), encoding: 'base64', size: file.size });
-      } else {
-        this.fileError.set(`${file.name} is not a supported type. Attach .bib, .csv, .tex, .txt, .md, .json, or .pdf.`);
+      if (!/^[A-Za-z0-9._-]+$/.test(file.name)) {
+        this.attachError.set(`${file.name} has characters that are not allowed.`);
+        continue;
       }
+      attachments.push(await readAttachment(file));
     }
-    if (added.length) this.chats.attach(added);
+    if (attachments.length) this.chat.attach(attachments);
   }
 
-  protected async copy(message: Message): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(messageText(message));
-      this.copied.set(message.id);
-      setTimeout(() => this.copied.set(null), 1600);
-    } catch {
-      /* clipboard access was refused; nothing to do */
-    }
-  }
-
-  protected exportChat(): void {
-    const conversation = this.conversation();
-    if (!conversation) return;
-    const body = conversation.messages
-      .map((m) => `## ${m.role === 'user' ? 'You' : 'Research Buddy'}\n\n${messageText(m)}`)
-      .join('\n\n---\n\n');
-    const blob = new Blob([`# ${conversation.title}\n\n${body}\n`], { type: 'text/markdown' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `${conversation.title.replace(/[^\w -]+/g, '').trim().slice(0, 60) || 'conversation'}.md`;
-    link.click();
-    URL.revokeObjectURL(link.href);
-  }
-
-  protected isLast(message: Message): boolean {
-    return this.messages().at(-1)?.id === message.id;
-  }
-
-  protected kb(bytes: number): string {
-    return bytes < 1024 ? `${bytes} B` : bytes < 1_048_576 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1_048_576).toFixed(1)} MB`;
-  }
-
-  private resize(): void {
-    requestAnimationFrame(() => {
-      const el = this.textarea()?.nativeElement;
-      if (!el) return;
-      el.style.height = 'auto';
-      el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
-    });
-  }
-
-  private focusBox(): void {
-    requestAnimationFrame(() => {
-      this.textarea()?.nativeElement.focus();
-      this.resize();
-    });
+  private scrollIfNeeded(): void {
+    const el = this.scroller()?.nativeElement;
+    if (el && this.stickToBottom) el.scrollTop = el.scrollHeight;
   }
 }
 
-/** Reduce a file name to the characters the server accepts. */
-function safeName(name: string): string {
-  const cleaned = name.normalize('NFKD').replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^[^A-Za-z0-9]+/, '');
-  return cleaned.slice(-100) || 'file.txt';
-}
-
-function toBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(binary);
+function readAttachment(file: File): Promise<Attachment> {
+  const textual =
+    /^text\/|json|csv|xml|markdown|latex/.test(file.type) ||
+    /\.(txt|md|csv|json|bib|tex|py|html|xml|tsv)$/i.test(file.name);
+  if (textual) {
+    return file.text().then((content) => ({ name: file.name, content, encoding: 'text' as const }));
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => {
+      const result = String(reader.result ?? '');
+      const base64 = result.includes(',') ? result.slice(result.indexOf(',') + 1) : result;
+      resolve({ name: file.name, content: base64, encoding: 'base64' });
+    };
+    reader.readAsDataURL(file);
+  });
 }

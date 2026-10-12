@@ -1,4 +1,5 @@
-@use '@fontsource-variable/inter/index.css';
+@use '@fontsource-variable/inter';
+@use 'katex/dist/katex.min.css';
 @use './styles/tokens';
 @use './styles/base';
 @use './styles/components';

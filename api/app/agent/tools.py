@@ -1,12 +1,7 @@
-"""Per-request tools that let the agent run a skill's bundled script on user-supplied files.
-
-Each chat request gets its own scratch directory. Scripts run with the server's Python,
-without a shell, from an allowlist, with that directory as the working directory.
-"""
+"""Tools that run skill scripts and read/write the per-request working folder."""
 
 from __future__ import annotations
 
-import asyncio
 import os
 import re
 import subprocess
@@ -17,105 +12,134 @@ from typing import Callable
 from .. import config
 from ..catalog import load_catalog
 
-_SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
+SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$")
+# Drop LLM and cloud credentials so a script cannot send the user's key elsewhere.
+_STRIP_ENV = {
+    "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY",
+    "GROQ_API_KEY", "OPENROUTER_API_KEY", "NVIDIA_API_KEY", "AZURE_OPENAI_API_KEY",
+    "AZURE_API_KEY", "AWS_SECRET_ACCESS_KEY", "AWS_ACCESS_KEY_ID", "AWS_SESSION_TOKEN",
+    "MISTRAL_API_KEY", "COHERE_API_KEY", "TOGETHER_API_KEY", "FIREWORKS_API_KEY",
+    "XAI_API_KEY", "DEEPSEEK_API_KEY",
+}
 
 
-def safe_filename(name: str) -> str | None:
-    """The name if it is a plain file name with no directory part, else None."""
-    return name if _SAFE_NAME.match(name or "") else None
+def _outside_workdir(arg: str) -> bool:
+    """True when an argument could point outside the private working folder."""
+    if "\x00" in arg:
+        return True
+    value = arg.split("=", 1)[1] if arg.startswith("--") and "=" in arg else arg
+    return (
+        ".." in Path(value).parts
+        or Path(value).is_absolute()
+        or value.startswith(("~", "/", "\\"))
+        or bool(re.match(r"^[A-Za-z]:", value))
+    )
 
 
-def check_args(args: list[str]) -> str | None:
-    """An error message when an argument could reach outside the scratch directory."""
-    for arg in args:
-        if not isinstance(arg, str) or len(arg) > 4000 or "\x00" in arg:
-            return "arguments must be strings of at most 4000 characters"
-        value = arg.split("=", 1)[1] if arg.startswith("--") and "=" in arg else arg
-        if ".." in Path(value).parts or Path(value).is_absolute() or re.match(r"^[A-Za-z]:", value) \
-                or value.startswith(("~", "/", "\\")):
-            return f"argument {arg!r} is not allowed: file arguments must be plain names in the working folder"
-    return None
+def safe_filename(name: str) -> bool:
+    return bool(name and SAFE_NAME.match(name) and "/" not in name and "\\" not in name and ".." not in name)
 
 
-def _clip(text: str, limit: int) -> str:
-    return text if len(text) <= limit else text[:limit] + f"\n… [truncated {len(text) - limit} characters]"
+def _clip(text: str, limit: int = config.SCRIPT_OUTPUT_CHARS) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit] + f"\n… truncated after {limit} characters"
 
 
-def make_script_tools(workdir: Path, extra_env: dict[str, str] | None = None) -> list[Callable]:
-    """Build the write_file, read_file, and run_script tools bound to one scratch directory."""
-    catalog = load_catalog()
+def make_script_tools(workdir: Path, script_env: dict[str, str] | None = None) -> list[Callable]:
+    """Return run_script, write_file, and read_file bound to one working folder."""
+    workdir = workdir.resolve()
+    extra_env = {k: v for k, v in (script_env or {}).items() if v}
+
+    def run_script(skill_name: str, script: str, args: list[str] | None = None) -> dict:
+        """Run a Python script that ships with a skill.
+
+        Args:
+            skill_name: Skill folder name, for example paper-search.
+            script: Filename in that skill's scripts/ folder, for example search_papers.py.
+            args: Command-line arguments as a list of strings. Do not concatenate them.
+        """
+        catalog = load_catalog()
+        if skill_name not in catalog:
+            return {"status": "error", "error": f"unknown skill '{skill_name}'"}
+        if skill_name in config.UNAVAILABLE_SCRIPTS:
+            return {"status": "error", "error": config.UNAVAILABLE_SCRIPTS[skill_name]}
+        if not safe_filename(script) or not script.endswith(".py") or script.startswith("_"):
+            return {"status": "error", "error": "script name is not allowed"}
+        script_path = (catalog[skill_name].path / "scripts" / script).resolve()
+        scripts_root = (catalog[skill_name].path / "scripts").resolve()
+        if not str(script_path).startswith(str(scripts_root) + os.sep) or not script_path.is_file():
+            return {"status": "error", "error": f"'{script}' is not a script of {skill_name}"}
+        argv = [str(a) for a in (args or [])]
+        if len(argv) > 40 or any(len(a) > 4000 for a in argv):
+            return {"status": "error", "error": "too many or too long script arguments"}
+        unsafe = next((arg for arg in argv if _outside_workdir(arg)), None)
+        if unsafe:
+            return {
+                "status": "error",
+                "error": f"argument {unsafe!r} is not allowed: file arguments must stay in the working folder",
+            }
+
+        env = {k: v for k, v in os.environ.items() if k not in _STRIP_ENV}
+        env.update(extra_env)
+        env["PYTHONPATH"] = str(scripts_root) + os.pathsep + env.get("PYTHONPATH", "")
+        env["PYTHONUNBUFFERED"] = "1"
+        try:
+            completed = subprocess.run(
+                [sys.executable, str(script_path), *argv],
+                cwd=workdir,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=config.SCRIPT_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired:
+            return {
+                "status": "error",
+                "error": f"script timed out after {config.SCRIPT_TIMEOUT_SECONDS}s",
+            }
+        except OSError as exc:
+            return {"status": "error", "error": f"could not run script: {exc}"}
+        result = {
+            "status": "ok" if completed.returncode == 0 else "error",
+            "exit_code": completed.returncode,
+            "stdout": _clip(completed.stdout or ""),
+            "stderr": _clip(completed.stderr or ""),
+        }
+        if completed.returncode != 0:
+            result["error"] = f"{script} exited {completed.returncode}"
+        return result
 
     def write_file(filename: str, content: str) -> dict:
-        """Save text to a file in the working folder so a script can read it.
-
-        Use this to hand a script its input, for example a .bib file, a CSV table, or a
-        .tex draft that the user pasted into the chat.
+        """Write a text file into the private working folder for scripts to read.
 
         Args:
-            filename: A plain file name such as "refs.bib" or "data.csv". No folders.
-            content: The full text of the file.
+            filename: A simple file name (letters, digits, dot, dash, underscore).
+            content: The full text to write.
         """
         if not safe_filename(filename):
-            return {"status": "error", "error": "filename must be a plain name such as refs.bib"}
+            return {"status": "error", "error": "filename is not allowed"}
         if len(content) > config.MAX_ATTACHMENT_BYTES:
-            return {"status": "error", "error": "content is too large"}
-        (workdir / filename).write_text(content, encoding="utf-8")
-        return {"status": "ok", "filename": filename, "characters": len(content)}
+            return {"status": "error", "error": "file is too large"}
+        path = workdir / filename
+        path.write_text(content, encoding="utf-8")
+        return {"status": "ok", "filename": filename, "bytes": path.stat().st_size}
 
     def read_file(filename: str) -> dict:
-        """Read a text file from the working folder, such as one a script wrote with --out.
+        """Read a text file from the private working folder.
 
         Args:
-            filename: A plain file name in the working folder.
+            filename: A simple file name previously written or produced by a script.
         """
-        if not safe_filename(filename) or not (workdir / filename).is_file():
-            files = sorted(p.name for p in workdir.iterdir() if p.is_file())
-            return {"status": "error", "error": f"no such file. Files in the working folder: {files}"}
-        text = (workdir / filename).read_text(encoding="utf-8", errors="replace")
+        if not safe_filename(filename):
+            return {"status": "error", "error": "filename is not allowed"}
+        path = workdir / filename
+        if not path.is_file():
+            return {"status": "error", "error": f"'{filename}' does not exist"}
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            return {"status": "error", "error": f"'{filename}' is not text"}
         return {"status": "ok", "filename": filename, "content": _clip(text, config.READ_FILE_CHARS)}
 
-    async def run_script(skill_name: str, script: str, args: list[str]) -> dict:
-        """Run a Python script that ships with a skill and return what it printed.
-
-        Load the skill first to learn the script's arguments. File arguments refer to
-        files in the working folder: files the user attached, or ones saved with write_file.
-
-        Args:
-            skill_name: The skill that owns the script, for example "paper-search".
-            script: The script file name, for example "search_papers.py".
-            args: Command-line arguments, one list item per argument, for example
-                ["retrieval augmented generation", "--limit", "10", "--format", "md"].
-        """
-        entry = catalog.get(skill_name)
-        script = (script or "").replace("\\", "/").rsplit("/", 1)[-1]
-        if entry is None:
-            return {"status": "error", "error": f"unknown skill {skill_name!r}"}
-        if script not in entry.scripts:
-            return {"status": "error",
-                    "error": f"{skill_name} has no runnable script {script!r}. Runnable: {list(entry.scripts)}"}
-        problem = check_args(args)
-        if problem:
-            return {"status": "error", "error": problem}
-
-        env = {k: v for k, v in os.environ.items()
-               if k.upper() in ("PATH", "SYSTEMROOT", "TEMP", "TMP", "TMPDIR", "LANG", "LD_LIBRARY_PATH",
-                                "PYTHONPATH", "OPENALEX_MAILTO")}
-        env.update({"PYTHONIOENCODING": "utf-8", "PYTHONDONTWRITEBYTECODE": "1", "HOME": str(workdir),
-                    **(extra_env or {})})
-        command = [sys.executable, "-B", str(entry.directory / "scripts" / script), *args]
-        try:
-            done = await asyncio.to_thread(
-                subprocess.run, command, cwd=workdir, env=env, capture_output=True, text=True,
-                encoding="utf-8", errors="replace", timeout=config.SCRIPT_TIMEOUT_SECONDS,
-                stdin=subprocess.DEVNULL)
-        except subprocess.TimeoutExpired:
-            return {"status": "error", "error": f"script timed out after {config.SCRIPT_TIMEOUT_SECONDS} seconds"}
-        return {
-            "status": "ok" if done.returncode == 0 else "error",
-            "exit_code": done.returncode,
-            "stdout": _clip(done.stdout, config.SCRIPT_OUTPUT_CHARS),
-            "stderr": _clip(done.stderr, 4000),
-            "files": sorted(p.name for p in workdir.iterdir() if p.is_file()),
-        }
-
-    return [write_file, read_file, run_script]
+    return [run_script, write_file, read_file]

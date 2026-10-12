@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, of, shareReplay } from 'rxjs';
 
-import { KeyCheck, Provider, SkillCatalog, SkillDetail } from './models';
+import { KeyCheck, Provider, SkillCatalog, SkillDetail, Thumb } from './models';
 import { SettingsStore } from './settings.store';
 
 @Injectable({ providedIn: 'root' })
@@ -17,7 +17,7 @@ export class ApiService {
     this.catalog$ ??= this.http.get<SkillCatalog>('/api/skills').pipe(
       shareReplay({ bufferSize: 1, refCount: false }),
       catchError((error) => {
-        this.catalog$ = undefined; // let the next caller retry
+        this.catalog$ = undefined;
         throw error;
       }),
     );
@@ -40,18 +40,30 @@ export class ApiService {
     return this.providers$;
   }
 
-  /** The chat models this key can use, asked from the provider itself. */
-  models(provider: string, key: string): Observable<string[]> {
-    return this.http
-      .get<{ models: string[] }>('/api/models', { headers: { 'X-LLM-Provider': provider, 'X-LLM-Key': key } })
-      .pipe(map((r) => r.models));
+  connectors(): Observable<Connector[]> {
+    return this.http.get<{ connectors: Connector[] }>('/api/connectors').pipe(map((r) => r.connectors));
+  }
+
+  feedback(kind: Thumb | 'review', message: string, source: 'popup' | 'message' | 'support'): Observable<{ ok: boolean; message: string }> {
+    return this.http.post<{ ok: boolean; message: string }>('/api/feedback', { kind, message, source });
   }
 
   validateKey(provider: string, model: string, key: string): Observable<KeyCheck> {
     return this.http
-      .post<KeyCheck>('/api/keys/validate', null, { headers: this.settings.credentialHeaders(provider, model, key) })
+      .post<KeyCheck>('/api/keys/validate', null, {
+        headers: this.settings.credentialHeaders(provider, model, key),
+      })
       .pipe(catchError((error: HttpErrorResponse) => of({ ok: false, message: errorMessage(error) })));
   }
+}
+
+export interface Connector {
+  id: string;
+  name: string;
+  detail: string;
+  kind: 'builtin' | 'email' | 'key';
+  header?: string;
+  keyUrl?: string;
 }
 
 export function errorMessage(error: unknown): string {

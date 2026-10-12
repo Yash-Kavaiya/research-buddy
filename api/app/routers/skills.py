@@ -1,37 +1,48 @@
-"""Read-only catalog endpoints: skills, lifecycle stages, and LLM providers."""
+"""Skill catalog and provider list. These endpoints do not need an API key."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException
 
-from ..catalog import load_catalog, stages
-from ..config import PROVIDERS
+from .. import config
+from ..catalog import load_catalog, skill_detail, skill_summary, stages_payload
 
 router = APIRouter()
-_CACHE = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400"
 
 
 @router.get("/health")
-def health() -> dict:
-    return {"status": "ok", "skills": len(load_catalog())}
+async def health() -> dict:
+    return {"ok": True, "skills": len(load_catalog())}
 
 
 @router.get("/skills")
-def list_skills(response: Response) -> dict:
-    response.headers["Cache-Control"] = _CACHE
-    return {"stages": stages(), "skills": [entry.brief() for entry in load_catalog().values()]}
+async def list_skills() -> dict:
+    catalog = load_catalog()
+    return {
+        "stages": stages_payload(),
+        "skills": [skill_summary(entry) for entry in catalog.values()],
+    }
 
 
 @router.get("/skills/{name}")
-def get_skill(name: str, response: Response) -> dict:
+async def get_skill(name: str) -> dict:
     entry = load_catalog().get(name)
     if entry is None:
-        raise HTTPException(404, "No such skill.")
-    response.headers["Cache-Control"] = _CACHE
-    return entry.detail()
+        raise HTTPException(404, "Unknown skill.")
+    return skill_detail(entry)
 
 
 @router.get("/providers")
-def list_providers(response: Response) -> dict:
-    response.headers["Cache-Control"] = _CACHE
-    return {"providers": [{"id": p.id, "name": p.name, "key_hint": p.key_hint, "key_url": p.key_url} for p in PROVIDERS.values()]}
+async def providers() -> dict:
+    return {
+        "providers": [
+            {
+                "id": p.id,
+                "name": p.name,
+                "keyHint": p.key_hint,
+                "keyUrl": p.key_url,
+                "models": p.models,
+            }
+            for p in config.PROVIDERS.values()
+        ]
+    }

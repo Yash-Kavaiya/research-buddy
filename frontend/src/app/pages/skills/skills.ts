@@ -1,128 +1,99 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { Router, RouterLink } from '@angular/router';
-import { catchError, of } from 'rxjs';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { catchError, map, of } from 'rxjs';
 
 import { ApiService } from '../../core/api.service';
-import { SkillBrief } from '../../core/models';
+import { SkillSummary } from '../../core/models';
 import { Footer } from '../../shared/footer';
 import { Icon } from '../../shared/icon';
 
 @Component({
   selector: 'app-skills',
-  imports: [RouterLink, Icon, Footer],
+  imports: [RouterLink, Footer, Icon],
   template: `
-    <section class="container head">
-      <h1 class="headline">Skills</h1>
-      <p class="lead">59 skills across the research lifecycle. Open one to read its method, or start a chat with it.</p>
+    <div class="page">
+      <header class="head">
+        <span class="eyebrow">Library</span>
+        <h1>Skills</h1>
+        <p>Each skill is a set of instructions the assistant loads before it works. Scripts run when the answer has to be retrieved or computed.</p>
+      </header>
 
-      <label class="search">
-        <span class="sr-only">Search skills</span>
-        <app-icon name="search" [size]="18" />
-        <input
-          type="search"
-          placeholder="Search by name, task, or tag"
-          autocomplete="off"
-          [value]="query()"
-          (input)="query.set($any($event.target).value)"
-        />
-      </label>
+      @if (catalog(); as cat) {
+        <div class="toolbar">
+          <label class="search">
+            <app-icon name="search" [size]="16" />
+            <input type="search" placeholder="Search skills" [value]="query()" (input)="query.set($any($event.target).value)" />
+          </label>
+          <div class="filters" role="tablist" aria-label="Stage">
+            <button type="button" [class.on]="!stage()" (click)="setStage(null)">All</button>
+            @for (s of cat.stages; track s.id) {
+              <button type="button" [class.on]="stage() === s.id" (click)="setStage(s.id)">{{ s.name }}</button>
+            }
+          </div>
+        </div>
 
-      @if (catalog(); as data) {
-        <div class="filters" role="group" aria-label="Filter by stage">
-          <button class="chip" type="button" [attr.aria-pressed]="!activeStage()" (click)="setStage(null)">All</button>
-          @for (stage of data.stages; track stage.index) {
-            <button
-              class="chip"
-              type="button"
-              [attr.aria-pressed]="activeStage() === stage.index"
-              (click)="setStage(stage.index)"
-            >
-              {{ stage.name }}
-            </button>
+        <div class="list">
+          @for (skill of filtered(); track skill.name) {
+            <a class="item card" [routerLink]="['/skills', skill.name]">
+              <i class="dot" [style.background]="'var(--stage-' + skill.stageNumber + ')'"></i>
+              <div>
+                <strong>{{ skill.name }}</strong>
+                <span class="desc">{{ skill.description }}</span>
+                <span class="meta">{{ skill.stageName }}@if (skill.hasScripts) { · script}</span>
+              </div>
+              <app-icon name="chevron" [size]="16" />
+            </a>
+          } @empty {
+            <p>No skills match that search.</p>
           }
         </div>
+      } @else if (failed()) {
+        <p class="banner banner-warn">Could not load the skill library. Is the API running?</p>
       }
-    </section>
 
-    <section class="container body" aria-live="polite">
-      @if (catalog() === undefined) {
-        <div class="page-state"><span class="spinner"></span>Loading skills</div>
-      } @else if (catalog() === null) {
-        <div class="page-state">
-          <p>The skill catalog could not be loaded.</p>
-          <button class="btn small" type="button" (click)="reload()">Try again</button>
-        </div>
-      } @else {
-        @for (group of groups(); track group.index) {
-          <section class="group" [style.--stage]="'var(--stage-' + group.index + ')'">
-            <h2><span class="stage-dot"></span>{{ group.name }} <span class="count">{{ group.skills.length }}</span></h2>
-            <ul>
-              @for (skill of group.skills; track skill.name) {
-                <li>
-                  <a class="skill card" [routerLink]="['/skills', skill.name]">
-                    <h3>{{ skill.title }}</h3>
-                    <p>{{ skill.summary }}</p>
-                    @if (skill.scripts.length) {
-                      <span class="chip"><app-icon name="terminal" [size]="13" /> Runs a script</span>
-                    }
-                  </a>
-                </li>
-              }
-            </ul>
-          </section>
-        } @empty {
-          <div class="page-state">
-            <p>No skill matches “{{ query() }}”.</p>
-            <button class="btn small quiet" type="button" (click)="clear()">Clear the search</button>
-          </div>
-        }
-      }
-    </section>
-    <app-footer />
+      <app-footer />
+    </div>
   `,
   styleUrl: './skills.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Skills {
   private readonly api = inject(ApiService);
-  private readonly router = inject(Router);
-
-  /** Bound from the ?stage= query parameter. */
-  readonly stage = input<string>();
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly query = signal('');
-  protected readonly catalog = toSignal(this.api.catalog().pipe(catchError(() => of(null))), { initialValue: undefined });
-  protected readonly activeStage = computed(() => {
-    const n = Number(this.stage());
-    return Number.isInteger(n) && n > 0 ? n : null;
+  protected readonly stage = signal<string | null>(this.route.snapshot.queryParamMap.get('stage'));
+  protected readonly failed = signal(false);
+  protected readonly catalog = toSignal(
+    this.api.catalog().pipe(
+      catchError(() => {
+        this.failed.set(true);
+        return of(null);
+      }),
+    ),
+    { initialValue: null },
+  );
+
+  protected readonly filtered = computed(() => {
+    const cat = this.catalog();
+    if (!cat) return [];
+    const q = this.query().trim().toLowerCase();
+    const stage = this.stage();
+    return cat.skills.filter((s) => matches(s, q, stage));
   });
 
-  protected readonly groups = computed(() => {
-    const data = this.catalog();
-    if (!data) return [];
-    const terms = this.query().toLowerCase().split(/\s+/).filter(Boolean);
-    const stage = this.activeStage();
-    const matches = (s: SkillBrief) => {
-      if (stage && s.stage_index !== stage) return false;
-      const text = `${s.name} ${s.title} ${s.summary} ${s.description} ${s.tags.join(' ')} ${s.stage}`.toLowerCase();
-      return terms.every((t) => text.includes(t));
-    };
-    return data.stages
-      .map((st) => ({ ...st, skills: data.skills.filter((s) => s.stage_index === st.index && matches(s)) }))
-      .filter((g) => g.skills.length);
-  });
-
-  protected setStage(stage: number | null): void {
-    this.router.navigate([], { queryParams: { stage }, queryParamsHandling: 'merge', replaceUrl: true });
+  protected setStage(id: string | null): void {
+    this.stage.set(id);
   }
+}
 
-  protected clear(): void {
-    this.query.set('');
-    this.setStage(null);
-  }
-
-  protected reload(): void {
-    location.reload();
-  }
+function matches(skill: SkillSummary, q: string, stage: string | null): boolean {
+  if (stage && skill.stage !== stage) return false;
+  if (!q) return true;
+  return (
+    skill.name.includes(q) ||
+    skill.description.toLowerCase().includes(q) ||
+    skill.tags.some((t) => t.toLowerCase().includes(q))
+  );
 }

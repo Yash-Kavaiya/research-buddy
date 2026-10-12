@@ -1,8 +1,9 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 
 import { ChatStreamService } from './chat-stream';
-import { Activity, Attachment, Block, Conversation, Message, StreamEvent, messageText } from './models';
+import { Activity, Attachment, Block, Conversation, Message, StreamEvent, Thumb, messageText } from './models';
 import { readJson, storage, writeJson } from './storage';
+import { UsageStore } from './usage.store';
 
 const STORE_KEY = 'rb.conversations';
 const ACTIVE_KEY = 'rb.activeConversation';
@@ -20,13 +21,19 @@ export function describeTool(name: string, args: Record<string, unknown>): { lab
     case 'run_script': {
       const list = Array.isArray(args['args']) ? (args['args'] as unknown[]).map(String) : [];
       const quoted = list.map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(' ');
-      return { label: `Ran ${str(args['script']).split(/[\\/]/).pop() || 'a script'}`, detail: `${str(args['skill_name'])} · ${quoted}`.trim() };
+      return {
+        label: `Ran ${str(args['script']) || 'a script'}`,
+        detail: `${str(args['skill_name'])} · ${quoted}`.trim(),
+      };
     }
     case 'list_skills':
     case 'search_skills':
       return { label: 'Looked through the skill library' };
     case 'load_skill_resource':
-      return { label: `Read ${str(args['file_path']) || str(args['path']) || 'a reference file'}`, detail: str(args['skill_name']) };
+      return {
+        label: `Read ${str(args['file_path']) || str(args['path']) || 'a reference file'}`,
+        detail: str(args['skill_name']),
+      };
     case 'unload_skill':
       return { label: `Set aside ${str(args['skill_name'])}` };
     case 'write_file':
@@ -42,12 +49,12 @@ export function describeTool(name: string, args: Record<string, unknown>): { lab
 @Injectable({ providedIn: 'root' })
 export class ChatStore {
   private readonly stream = inject(ChatStreamService);
+  private readonly usage = inject(UsageStore);
   private abort: AbortController | null = null;
 
   readonly conversations = signal<Conversation[]>(sanitize(readJson(storage('local'), STORE_KEY, [])));
   readonly activeId = signal<string | null>(readJson(storage('local'), ACTIVE_KEY, null));
   readonly busy = signal(false);
-  /** Files attached per conversation. Held in memory: they are resent with each turn and gone after a reload. */
   readonly attachments = signal<Record<string, Attachment[]>>({});
 
   readonly active = computed(() => this.conversations().find((c) => c.id === this.activeId()) ?? null);
@@ -56,21 +63,32 @@ export class ChatStore {
   constructor() {
     effect(() => {
       const conversations = this.conversations();
-      if (this.busy()) return; // save once the answer has finished, not on every token
-      writeJson(storage('local'), STORE_KEY, conversations.filter((c) => c.messages.length));
+      if (this.busy()) return;
+      writeJson(
+        storage('local'),
+        STORE_KEY,
+        conversations.filter((c) => c.messages.length),
+      );
     });
     effect(() => writeJson(storage('local'), ACTIVE_KEY, this.activeId()));
   }
 
-  /** Open a blank conversation, reusing an existing empty one. */
-  create(skill: string | null = null): Conversation {
-    const empty = this.conversations().find((c) => !c.messages.length);
+  create(skill: string | null = null, projectId: string | null = null): Conversation {
+    const empty = this.conversations().find((c) => !c.messages.length && (c.projectId ?? null) === projectId);
     if (empty) {
-      this.patch(empty.id, (c) => ({ ...c, skill, updatedAt: Date.now() }));
+      this.patch(empty.id, (c) => ({ ...c, skill, projectId, updatedAt: Date.now() }));
       this.activeId.set(empty.id);
-      return { ...empty, skill };
+      return { ...empty, skill, projectId };
     }
-    const conversation: Conversation = { id: uid(), title: 'New chat', skill, messages: [], updatedAt: Date.now() };
+    const conversation: Conversation = {
+      id: uid(),
+      title: 'New chat',
+      skill,
+      projectId,
+      deep: false,
+      messages: [],
+      updatedAt: Date.now(),
+    };
     this.conversations.update((list) => [conversation, ...list].slice(0, MAX_CONVERSATIONS));
     this.activeId.set(conversation.id);
     return conversation;
@@ -99,11 +117,58 @@ export class ChatStore {
     if (id) this.patch(id, (c) => ({ ...c, skill }));
   }
 
+  setProject(id: string, projectId: string | null): void {
+    this.patch(id, (c) => ({ ...c, projectId }));
+  }
+
+  releaseProject(projectId: string): void {
+    this.conversations.update((list) => list.map((c) => (c.projectId === projectId ? { ...c, projectId: null } : c)));
+  }
+
+  setDeep(deep: boolean): void {
+    const id = this.activeId() ?? this.create().id;
+    this.patch(id, (c) => ({ ...c, deep }));
+  }
+
+  rateMessage(messageId: string, feedback: Thumb): void {
+    const id = this.activeId();
+    if (!id) return;
+    this.patch(id, (c) => ({
+      ...c,
+      messages: c.messages.map((m) => (m.id === messageId ? { ...m, feedback } : m)),
+    }));
+  }
+
+  /** Copy this chat up to a message into a new conversation. */
+  branchAt(messageId: string): Conversation | null {
+    const current = this.active();
+    if (!current || this.busy()) return null;
+    const index = current.messages.findIndex((m) => m.id === messageId);
+    if (index < 0) return null;
+    const conversation: Conversation = {
+      id: uid(),
+      title: `${current.title} · branch`.slice(0, 80),
+      skill: current.skill,
+      projectId: current.projectId,
+      deep: current.deep,
+      messages: current.messages.slice(0, index + 1).map((m) => ({
+        ...m,
+        id: uid(),
+        pending: false,
+        blocks: m.blocks.map((b) => ({ ...b })),
+      })),
+      updatedAt: Date.now(),
+    };
+    this.conversations.update((list) => [conversation, ...list].slice(0, MAX_CONVERSATIONS));
+    this.activeId.set(conversation.id);
+    return conversation;
+  }
+
   attach(files: Attachment[]): void {
     const id = this.activeId() ?? this.create().id;
     this.attachments.update((all) => {
       const merged = [...(all[id] ?? []).filter((a) => !files.some((f) => f.name === a.name)), ...files];
-      return { ...all, [id]: merged };
+      return { ...all, [id]: merged.slice(0, 5) };
     });
   }
 
@@ -116,7 +181,6 @@ export class ChatStore {
     this.abort?.abort();
   }
 
-  /** Drop the last answer and ask the same question again. */
   async regenerate(): Promise<void> {
     const conversation = this.active();
     if (!conversation || this.busy()) return;
@@ -139,7 +203,9 @@ export class ChatStore {
       .filter((m) => m.content)
       .slice(-MAX_HISTORY_TURNS);
     const user: Message = {
-      id: uid(), role: 'user', blocks: [{ type: 'text', text }],
+      id: uid(),
+      role: 'user',
+      blocks: [{ type: 'text', text }],
       attachments: files.length ? files.map((f) => f.name) : undefined,
     };
     const answer: Message = { id: uid(), role: 'assistant', blocks: [], pending: true };
@@ -156,7 +222,6 @@ export class ChatStore {
     const update = (fn: (m: Message) => Message) =>
       this.patch(id, (c) => ({ ...c, messages: c.messages.map((m) => (m.id === answer.id ? fn(m) : m)) }));
 
-    // Text arrives token by token; apply it in small batches so rendering keeps up.
     let buffered = '';
     let timer: ReturnType<typeof setTimeout> | null = null;
     const flush = () => {
@@ -170,7 +235,10 @@ export class ChatStore {
 
     try {
       const request = {
-        message: text, history, skill: conversation.skill,
+        message: text,
+        history,
+        skill: conversation.skill,
+        deep: conversation.deep,
         attachments: files.map(({ name, content, encoding }) => ({ name, content, encoding })),
       };
       for await (const event of this.stream.send(request, this.abort.signal)) {
@@ -182,13 +250,22 @@ export class ChatStore {
           update((m) => applyEvent(m, event));
         }
       }
+    } catch (error) {
+      if ((error as { name?: string }).name !== 'AbortError') {
+        update((m) => ({ ...m, error: error instanceof Error ? error.message : 'The request failed.' }));
+      }
     } finally {
+      const aborted = this.abort?.signal.aborted ?? false;
       flush();
       update((m) => ({
         ...m,
         pending: false,
         blocks: m.blocks.map((b) => (b.type === 'activity' && b.status === 'running' ? { ...b, status: 'ok' } : b)),
       }));
+      const finished = this.conversations()
+        .find((c) => c.id === id)
+        ?.messages.find((m) => m.id === answer.id);
+      if (!aborted && finished && messageText(finished) && !finished.error) this.usage.completeTurn();
       this.abort = null;
       this.busy.set(false);
     }
@@ -216,15 +293,23 @@ export function applyEvent(message: Message, event: StreamEvent): Message {
       return { ...message, blocks: appendText(message.blocks, event.delta) };
     case 'skill_loaded': {
       const activity: Activity = {
-        type: 'activity', id: event.id ?? uid(), kind: 'skill', name: event.skill,
-        label: `Using ${event.skill}`, status: 'ok',
+        type: 'activity',
+        id: event.id ?? uid(),
+        kind: 'skill',
+        name: event.skill,
+        label: `Using ${event.skill}`,
+        status: 'ok',
       };
       return { ...message, blocks: [...message.blocks, activity] };
     }
     case 'tool_call': {
       const activity: Activity = {
-        type: 'activity', id: event.id ?? uid(), kind: 'tool', name: event.name,
-        ...describeTool(event.name, event.args ?? {}), status: 'running',
+        type: 'activity',
+        id: event.id ?? uid(),
+        kind: 'tool',
+        name: event.name,
+        ...describeTool(event.name, event.args ?? {}),
+        status: 'running',
       };
       return { ...message, blocks: [...message.blocks, activity] };
     }
@@ -232,7 +317,7 @@ export function applyEvent(message: Message, event: StreamEvent): Message {
       return {
         ...message,
         blocks: message.blocks.map((b) =>
-          b.type === 'activity' && b.id === event.id && b.status === 'running'
+          b.type === 'activity' && (b.id === event.id || (b.status === 'running' && b.name === event.name))
             ? { ...b, status: event.ok ? 'ok' : 'error', preview: event.preview }
             : b,
         ),
@@ -244,7 +329,6 @@ export function applyEvent(message: Message, event: StreamEvent): Message {
   }
 }
 
-/** Stored conversations may predate a format change or have been cut off mid-answer. */
 function sanitize(value: unknown): Conversation[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -252,8 +336,8 @@ function sanitize(value: unknown): Conversation[] {
     .map((c) => ({
       ...c,
       skill: c.skill ?? null,
-      messages: c.messages
-        .filter((m) => m && Array.isArray(m.blocks))
-        .map((m) => ({ ...m, pending: false })),
+      projectId: c.projectId ?? null,
+      deep: !!c.deep,
+      messages: c.messages.filter((m) => m && Array.isArray(m.blocks)).map((m) => ({ ...m, pending: false })),
     }));
 }

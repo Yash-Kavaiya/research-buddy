@@ -22,7 +22,7 @@ _PREVIEW_CHARS = 4000
 def _preview(value: Any) -> str:
     """A short, readable rendering of a tool result for the activity panel."""
     if isinstance(value, dict):
-        for key in ("stdout", "content", "error", "result"):
+        for key in ("stdout", "content", "error"):
             if isinstance(value.get(key), str) and value[key].strip():
                 text = value[key]
                 if key == "stdout" and value.get("stderr"):
@@ -50,23 +50,25 @@ async def run_turn(agent: LlmAgent, history: list[dict], message: str) -> AsyncI
         is_user = turn["role"] == "user"
         await sessions.append_event(session, Event(
             author="user" if is_user else agent.name,
-            content=types.Content(role="user" if is_user else "model", parts=[types.Part(text=turn["content"])]),
+            content=types.Content(
+                role="user" if is_user else "model",
+                parts=[types.Part(text=turn["content"])],
+            ),
         ))
 
     runner = Runner(agent=agent, app_name=APP_NAME, session_service=sessions)
     run_config = RunConfig(streaming_mode=StreamingMode.SSE, max_llm_calls=config.MAX_LLM_CALLS)
     new_message = types.Content(role="user", parts=[types.Part(text=message)])
 
-    soft_error: str | None = None
-    streamed = False  # whether partial text was already sent for the model response in progress
-    async for event in runner.run_async(user_id=USER_ID, session_id=session.id, new_message=new_message,
-                                        run_config=run_config):
+    streamed = False
+    async for event in runner.run_async(
+        user_id=USER_ID, session_id=session.id, new_message=new_message, run_config=run_config
+    ):
         if event.error_message:
-            # Usually followed by the exception itself, which the caller reports with a status.
-            soft_error = event.error_message
+            yield {"type": "error", "message": event.error_message}
         parts = (event.content.parts if event.content else None) or []
         for part in parts:
-            if part.text and not part.thought:
+            if part.text and not getattr(part, "thought", False):
                 if event.partial:
                     streamed = True
                     yield {"type": "text", "delta": part.text}
@@ -76,15 +78,22 @@ async def run_turn(agent: LlmAgent, history: list[dict], message: str) -> AsyncI
                 call = part.function_call
                 args = dict(call.args or {})
                 if call.name == "load_skill":
-                    yield {"type": "skill_loaded", "id": call.id, "skill": args.get("skill_name") or args.get("name")}
+                    yield {
+                        "type": "skill_loaded",
+                        "id": call.id,
+                        "skill": args.get("skill_name") or args.get("name"),
+                    }
                 else:
                     yield {"type": "tool_call", "id": call.id, "name": call.name, "args": args}
             elif part.function_response:
                 response = part.function_response
                 if response.name != "load_skill":
-                    yield {"type": "tool_result", "id": response.id, "name": response.name,
-                           "ok": _ok(response.response), "preview": _preview(response.response)}
+                    yield {
+                        "type": "tool_result",
+                        "id": getattr(response, "id", None),
+                        "name": response.name,
+                        "ok": _ok(response.response),
+                        "preview": _preview(response.response),
+                    }
         if not event.partial:
             streamed = False
-    if soft_error:
-        yield {"type": "error", "message": soft_error}

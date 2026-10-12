@@ -1,55 +1,57 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { DomSanitizer } from '@angular/platform-browser';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
-// Line icons drawn on a 24px grid with round caps, in the manner of SF Symbols.
 const PATHS: Record<string, string> = {
-  plus: '<path d="M12 5v14M5 12h14"/>',
-  send: '<path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/>',
-  stop: '<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/>',
-  paperclip: '<path d="m20 11.5-8.2 8.2a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/>',
-  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
-  copy: '<rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H15"/>',
-  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
-  retry: '<path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/>',
-  download: '<path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/>',
-  sidebar: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M9 5v14"/>',
-  search: '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
-  sparkles: '<path d="M10 4.5 11.6 9 16 10.5 11.6 12 10 16.5 8.4 12 4 10.5 8.4 9ZM18 14l.8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8Z"/>',
-  terminal: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m7.5 10 2.5 2.5L7.5 15M12.5 15h4"/>',
-  book: '<path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H19v15H7.5A2.5 2.5 0 0 0 5 20.5ZM5 20.5A2.5 2.5 0 0 0 7.5 21H19"/>',
-  close: '<path d="M6 6l12 12M18 6 6 18"/>',
-  chevron: '<path d="m9 6 6 6-6 6"/>',
-  warning: '<path d="M12 4 2.8 19.5h18.4ZM12 10v4.5M12 17.2v.3"/>',
-  key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 7l2.5 2.5M13.5 9.5 15 11"/>',
-  lock: '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
-  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
-  moon: '<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z"/>',
-  auto: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17Z" fill="currentColor" stroke="none"/>',
-  doc: '<path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM14 3v5h5"/>',
-  menu: '<path d="M4 8h16M4 16h16"/>',
+  auto: 'M12 3a9 9 0 1 0 9 9h-9V3z M12 3v9h9A9 9 0 0 0 12 3z',
+  sun: 'M12 4V2M12 22v-2M4.93 4.93 3.51 3.51M20.49 20.49l-1.42-1.42M4 12H2M22 12h-2M4.93 19.07 3.51 20.49M20.49 3.51l-1.42 1.42M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z',
+  moon: 'M21 14.3A8.5 8.5 0 0 1 9.7 3 7 7 0 1 0 21 14.3z',
+  send: 'M3.4 20.6 21 12 3.4 3.4 3 10l11 2-11 2z',
+  stop: 'M7 7h10v10H7z',
+  attach: 'M21.4 11.6 12.2 20.8a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.1a2 2 0 1 1-2.8-2.8l8.5-8.5',
+  copy: 'M8 8h10v12H8z M6 16H4V4h12v2',
+  plus: 'M12 5v14M5 12h14',
+  trash: 'M4 7h16M9 7V5h6v2M8 7l1 12h6l1-12',
+  chevron: 'M9 6l6 6-6 6',
+  spark: 'M12 3l1.5 6L20 10.5 13.5 12 12 18l-1.5-6L4 10.5 10.5 9z',
+  check: 'M5 13l4 4L19 7',
+  close: 'M6 6l12 12M18 6 6 18',
+  menu: 'M4 7h16M4 12h16M4 17h16',
+  key: 'M8 14a4 4 0 1 1 3.5-2H22v3h-2v2h-3v-2h-2v-3h-3.5A4 4 0 0 1 8 14z',
+  search: 'M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12zM20 20l-4-4',
+  up: 'M14 10V6a2 2 0 0 0-2-2l-1 5H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h8.2a2 2 0 0 0 1.9-1.4l1.5-5.1A2 2 0 0 0 15.7 10H14z',
+  down: 'M10 14v4a2 2 0 0 0 2 2l1-5h5a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H9.8A2 2 0 0 0 7.9 6.4L6.4 11.5A2 2 0 0 0 8.3 14H10z',
+  share: 'M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13',
+  branch: 'M6 3a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM6 16a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM18 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM6 8v8M18 8c0 3-4 4-7 4H6',
+  folder: 'M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z',
+  code: 'M8 8 4 12l4 4M16 8l4 4-4 4M13 6l-2 12',
 };
 
 @Component({
   selector: 'app-icon',
-  template: `<svg
-    [attr.width]="size()"
-    [attr.height]="size()"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.7"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    aria-hidden="true"
-    [innerHTML]="paths()"
-  ></svg>`,
-  styles: `:host { display: inline-flex; flex: none; }`,
+  template: `
+    <svg
+      [attr.width]="size()"
+      [attr.height]="size()"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path [attr.d]="PATHS[name()] || ''" />
+    </svg>
+  `,
+  styles: `
+    :host {
+      display: inline-flex;
+      line-height: 0;
+    }
+  `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Icon {
-  private readonly sanitizer = inject(DomSanitizer);
-
   readonly name = input.required<string>();
   readonly size = input(18);
-  protected readonly paths = computed(() => this.sanitizer.bypassSecurityTrustHtml(PATHS[this.name()] ?? ''));
+  protected readonly PATHS = PATHS;
 }

@@ -3,89 +3,79 @@ import { Injectable, inject } from '@angular/core';
 import { Attachment, StreamEvent } from './models';
 import { SettingsStore } from './settings.store';
 
-export interface ChatRequest {
+export interface ChatRequestBody {
   message: string;
   history: { role: 'user' | 'assistant'; content: string }[];
   skill: string | null;
+  deep?: boolean;
   attachments: Pick<Attachment, 'name' | 'content' | 'encoding'>[];
-}
-
-/**
- * Split a Server-Sent Events buffer into complete events.
- * Returns the parsed events and the unfinished tail to carry into the next chunk.
- */
-export function parseSse(buffer: string): { events: StreamEvent[]; rest: string } {
-  const events: StreamEvent[] = [];
-  const frames = buffer.replace(/\r\n/g, '\n').split('\n\n');
-  const rest = frames.pop() ?? '';
-  for (const frame of frames) {
-    const data = frame
-      .split('\n')
-      .filter((line) => line.startsWith('data:'))
-      .map((line) => line.slice(5).replace(/^ /, ''))
-      .join('\n');
-    if (!data) continue;
-    try {
-      events.push(JSON.parse(data) as StreamEvent);
-    } catch {
-      /* skip a malformed frame instead of ending the stream */
-    }
-  }
-  return { events, rest };
 }
 
 @Injectable({ providedIn: 'root' })
 export class ChatStreamService {
   private readonly settings = inject(SettingsStore);
 
-  /** Send one message and yield the agent's events as they arrive. */
-  async *send(request: ChatRequest, signal: AbortSignal): AsyncGenerator<StreamEvent> {
-    let response: Response;
-    try {
-      response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...this.settings.credentialHeaders() },
-        body: JSON.stringify(request),
-        signal,
-      });
-    } catch (error) {
-      if (signal.aborted) return;
-      yield { type: 'error', message: 'Could not reach the server. Check your connection and try again.' };
-      return;
-    }
+  async *send(body: ChatRequestBody, signal: AbortSignal): AsyncGenerator<StreamEvent> {
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.settings.credentialHeaders(),
+      },
+      body: JSON.stringify(body),
+      signal,
+    });
 
-    if (!response.ok || !response.body) {
+    if (!response.ok) {
       let message = `The server returned an error (${response.status}).`;
       try {
-        message = (await response.json()).message ?? message;
+        const payload = (await response.json()) as { message?: string };
+        if (payload.message) message = payload.message;
       } catch {
-        if (response.status === 413) message = 'The request is too large. Remove an attachment or start a new chat.';
-        if (response.status === 504) message = 'The request timed out. Try a smaller task.';
+        /* not JSON */
       }
-      yield { type: 'error', message, status: response.status };
+      yield { type: 'error', status: response.status, message };
       return;
     }
 
-    const reader = response.body.getReader();
+    const reader = response.body?.getReader();
+    if (!reader) {
+      yield { type: 'error', message: 'The server closed the stream unexpectedly.' };
+      return;
+    }
+
     const decoder = new TextDecoder();
     let buffer = '';
-    let finished = false;
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const parsed = parseSse(buffer + decoder.decode(value, { stream: true }));
-        buffer = parsed.rest;
-        for (const event of parsed.events) {
-          if (event.type === 'done' || event.type === 'error') finished = true;
-          yield event;
-        }
+    while (true) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      const chunks = buffer.split('\n\n');
+      buffer = chunks.pop() ?? '';
+      for (const chunk of chunks) {
+        const event = parseSse(chunk);
+        if (event) yield event;
       }
-    } catch {
-      if (signal.aborted) return;
+      if (done) break;
     }
-    if (!finished && !signal.aborted) {
-      yield { type: 'error', message: 'The connection closed before the answer finished. Try again.' };
-    }
+    const last = parseSse(buffer);
+    if (last) yield last;
+  }
+}
+
+export function parseSse(chunk: string): StreamEvent | null {
+  let eventType = '';
+  const data: string[] = [];
+  for (const raw of chunk.split('\n')) {
+    const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw;
+    if (line.startsWith('event:')) eventType = line.slice(6).trim();
+    else if (line.startsWith('data:')) data.push(line.slice(5).trimStart());
+  }
+  if (!data.length) return null;
+  try {
+    const parsed = JSON.parse(data.join('\n')) as StreamEvent;
+    if (eventType && parsed.type !== eventType) return { ...parsed, type: eventType } as StreamEvent;
+    return parsed;
+  } catch {
+    return eventType === 'error' ? { type: 'error', message: data.join('\n') } : null;
   }
 }

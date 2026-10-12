@@ -15,6 +15,5 @@ frontend/.angular/
 !.env.example
 .vercel/
 .DS_Store
+*.log
 .playwright-mcp/
-
-.vercel

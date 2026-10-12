@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import datetime
+import functools
+import warnings
 from pathlib import Path
 from typing import AsyncGenerator, Callable
 
@@ -11,12 +13,15 @@ from google.adk.models.base_llm import BaseLlm
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
+from google.adk.skills import load_skills_from_dir
 from google.adk.tools.skill_toolset import SkillToolset
 
+from .. import config
 from ..catalog import load_catalog
-from ..config import PROVIDERS
 from ..errors import ProviderError, describe
 from .tools import make_script_tools
+
+warnings.filterwarnings("ignore", category=UserWarning, module=r"google\.adk")
 
 AGENT_NAME = "research_buddy"
 
@@ -35,9 +40,9 @@ follow those instructions, including the skill's output format.
 3. Some skills ship Python scripts for work that must be computed or retrieved, not \
 recalled: literature search, citation checks, statistics, power analysis, tables. Run them \
 with `run_script(skill_name, script, args)`. This replaces any instruction to use bash, a \
-shell, or another script tool: `run_script` is the only way to run a script here, and it \
-does work. Scripts read and write files in a private working folder; put pasted text there \
-with `write_file`, and read output files with `read_file`.
+shell, `run_skill_script`, or another script tool: `run_script` is the only way to run a \
+script here, and it does work. Scripts read and write files in a private working folder; \
+put pasted text there with `write_file`, and read output files with `read_file`.
 4. Use `load_skill_resource` to open a skill's `references/` and `assets/` files when its \
 instructions call for them.
 5. Answer simple conversational questions directly, without loading a skill.
@@ -51,8 +56,9 @@ reference that was not retrieved is unverified; say so.
 could not verify.
 - Research decisions and responsibility for what is submitted stay with the user. Stop at \
 decisions that are theirs: topic, research question, design, venue.
-- You cannot browse the web or read URLs. The scripts of `publication-figure-maker` and `experiment-logger` are \
-not available here; for those skills, give the user the code or commands to run themselves.
+- You cannot browse the web or read URLs. The scripts of `publication-figure-maker` and \
+`experiment-logger` are not available here; for those skills, give the user the code or \
+commands to run themselves.
 
 Write in Markdown. Use tables where the skill's output format calls for them, fenced code \
 blocks for code, LaTeX, and BibTeX, and `$...$` or `$$...$$` for mathematics.
@@ -61,10 +67,15 @@ Today's date is {today}.
 """
 
 
+@functools.lru_cache(maxsize=1)
+def _adk_skills():
+    return load_skills_from_dir(config.SKILLS_DIR)
+
+
 def build_model(provider_id: str, model: str, api_key: str) -> BaseLlm:
     """A LiteLLM-backed model that carries the caller's key. Nothing is cached or put in the environment."""
-    provider = PROVIDERS[provider_id]
-    return LiteLlm(model=provider.litellm_model(model), api_key=api_key)
+    provider = config.PROVIDERS[provider_id]
+    return LiteLlm(model=provider.litellm_model(model), api_key=api_key, drop_params=True)
 
 
 class GuardedLlm(BaseLlm):
@@ -77,8 +88,9 @@ class GuardedLlm(BaseLlm):
     inner: BaseLlm
     secrets: tuple[str, ...] = ()
 
-    async def generate_content_async(self, llm_request: LlmRequest, stream: bool = False
-                                     ) -> AsyncGenerator[LlmResponse, None]:
+    async def generate_content_async(
+        self, llm_request: LlmRequest, stream: bool = False
+    ) -> AsyncGenerator[LlmResponse, None]:
         try:
             async for response in self.inner.generate_content_async(llm_request, stream=stream):
                 yield response
@@ -86,22 +98,49 @@ class GuardedLlm(BaseLlm):
             raise ProviderError(*describe(exc, *self.secrets)) from None
 
 
-def build_agent(model: BaseLlm, workdir: Path, *, secrets: tuple[str, ...] = (), pinned_skill: str | None = None,
-                attachments: list[str] | None = None, script_env: dict[str, str] | None = None,
-                today: datetime.date | None = None) -> LlmAgent:
+def build_agent(
+    model: BaseLlm,
+    workdir: Path,
+    *,
+    secrets: tuple[str, ...] = (),
+    pinned_skill: str | None = None,
+    attachments: list[str] | None = None,
+    script_env: dict[str, str] | None = None,
+    today: datetime.date | None = None,
+    deep: bool = False,
+) -> LlmAgent:
     catalog = load_catalog()
     instruction = INSTRUCTION.format(today=(today or datetime.date.today()).isoformat())
     if pinned_skill and pinned_skill in catalog:
-        instruction += (f"\nThe user chose the `{pinned_skill}` skill for this conversation. Load it with "
-                        "`load_skill` before your first answer and work through it unless they ask for something else.\n")
+        instruction += (
+            f"\nThe user chose the `{pinned_skill}` skill for this conversation. Load it with "
+            "`load_skill` before your first answer and work through it unless they ask for something else.\n"
+        )
+    if deep:
+        instruction += (
+            "\nThe user turned on Deep research for this message. Load `research-scholar-orchestrator` "
+            "before other skills. When the task needs literature, search more than one source with "
+            "`run_script`. Follow each skill you load, say what failed or could not be verified, and do not "
+            "stop after a single lookup.\n"
+        )
     if attachments:
-        instruction += ("\nFiles the user attached, already in the working folder and ready to pass to "
-                        "`run_script` or open with `read_file`: " + ", ".join(attachments) + "\n")
+        instruction += (
+            "\nFiles the user attached, already in the working folder and ready to pass to "
+            "`run_script` or open with `read_file`: " + ", ".join(attachments) + "\n"
+        )
 
     tools: list[Callable | SkillToolset] = [
-        SkillToolset(skills=[entry.skill for entry in catalog.values()]),
+        SkillToolset(
+            skills=_adk_skills(),
+            tool_filter=["list_skills", "load_skill", "load_skill_resource"],
+        ),
         *make_script_tools(workdir, script_env),
     ]
-    model = GuardedLlm(model=model.model, inner=model, secrets=tuple(s for s in secrets if s))
-    return LlmAgent(name=AGENT_NAME, model=model, instruction=instruction, tools=tools,
-                    description="Routes research requests to the research-scholar skills and carries them out.")
+    guarded = GuardedLlm(model=model.model, inner=model, secrets=tuple(s for s in secrets if s))
+    return LlmAgent(
+        name=AGENT_NAME,
+        model=guarded,
+        instruction=instruction,
+        tools=tools,
+        description="Routes research requests to the research-scholar skills and carries them out.",
+    )

@@ -1,173 +1,113 @@
-// Rendered Markdown: assistant answers and skill documentation.
-
 .md {
   font-size: 16px;
   line-height: 1.6;
-  letter-spacing: -0.012em;
+  color: var(--text);
   overflow-wrap: anywhere;
 
-  > :first-child {
+  > *:first-child {
     margin-top: 0;
-  }
-
-  > :last-child {
-    margin-bottom: 0;
   }
 
   h1,
   h2,
   h3,
   h4 {
-    margin: 1.5em 0 0.5em;
-    letter-spacing: -0.018em;
-    line-height: 1.2;
+    margin: 1.4em 0 0.5em;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
   }
 
   h1 {
-    font-size: 1.6em;
+    font-size: 1.5em;
   }
-
   h2 {
-    font-size: 1.32em;
+    font-size: 1.25em;
   }
-
   h3 {
-    font-size: 1.12em;
-  }
-
-  h4 {
-    font-size: 1em;
+    font-size: 1.1em;
   }
 
   p,
   ul,
-  ol,
-  blockquote,
-  pre,
-  .table-wrap {
-    margin: 0 0 1em;
-  }
-
-  ul,
   ol {
-    padding-left: 1.4em;
+    margin: 0 0 0.9em;
+    color: var(--text);
   }
 
   li {
-    margin: 0.25em 0;
+    margin: 0.2em 0;
   }
 
-  li > p {
-    margin-bottom: 0.4em;
+  a {
+    color: var(--link);
   }
 
   blockquote {
-    padding: 2px 0 2px 16px;
+    margin: 0 0 0.9em;
+    padding: 0 0 0 14px;
     border-left: 3px solid var(--border-strong);
     color: var(--text-2);
   }
 
-  hr {
-    height: 1px;
-    margin: 1.6em 0;
-    border: 0;
-    background: var(--border);
-  }
-
-  code {
-    padding: 0.14em 0.4em;
-    border-radius: 6px;
-    background: var(--bg-inset);
-    font-family: var(--font-mono);
-    font-size: 0.86em;
-    letter-spacing: 0;
-  }
-
-  pre {
-    padding: 14px 16px;
-    overflow-x: auto;
-    border-radius: var(--radius-m);
-    background: var(--bg-inset);
-    line-height: 1.5;
-
-    code {
-      padding: 0;
-      background: none;
-      font-size: 13.5px;
-      overflow-wrap: normal;
-    }
-  }
-
-  .table-wrap {
-    overflow-x: auto;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-m);
-  }
-
   table {
     width: 100%;
+    margin: 0 0 1em;
     border-collapse: collapse;
-    font-size: 14.5px;
-    line-height: 1.45;
-    overflow-wrap: normal;
+    font-size: 14px;
   }
 
   th,
   td {
-    padding: 9px 14px;
+    padding: 8px 10px;
     border-bottom: 1px solid var(--border);
     text-align: left;
     vertical-align: top;
   }
 
   th {
-    background: var(--bg-inset);
+    color: var(--text-2);
     font-weight: 600;
-    white-space: nowrap;
   }
 
-  tr:last-child td {
-    border-bottom: 0;
+  pre {
+    margin: 0 0 1em;
+    padding: 14px 16px;
+    overflow: auto;
+    border-radius: var(--radius-m);
+    background: var(--bg-inset);
+    font-size: 13px;
+    line-height: 1.5;
   }
 
-  img {
-    max-width: 100%;
+  :not(pre) > code {
+    padding: 0.15em 0.4em;
+    border-radius: 5px;
+    background: var(--bg-inset);
+    font-size: 0.9em;
   }
 
   .katex-display {
+    margin: 0.8em 0;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 4px 0;
   }
 
   .hljs-keyword,
-  .hljs-literal,
-  .hljs-built_in,
-  .hljs-tag,
-  .hljs-name {
+  .hljs-selector-tag {
     color: var(--code-kw);
   }
-
   .hljs-string,
-  .hljs-regexp,
   .hljs-attr {
     color: var(--code-str);
   }
-
-  .hljs-number,
-  .hljs-symbol,
-  .hljs-variable {
+  .hljs-number {
     color: var(--code-num);
   }
-
-  .hljs-comment,
-  .hljs-quote,
-  .hljs-meta {
+  .hljs-comment {
     color: var(--code-com);
   }
-
   .hljs-title,
-  .hljs-section,
   .hljs-function {
     color: var(--code-fn);
   }
