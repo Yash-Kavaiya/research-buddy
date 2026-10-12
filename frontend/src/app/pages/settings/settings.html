@@ -1,0 +1,165 @@
+<div class="container page">
+  <header class="head">
+    <h1 class="headline">Settings</h1>
+    <p class="lead">Choose a model and add your own key. Everything here is saved in this browser only.</p>
+  </header>
+
+  <section class="panel card" aria-labelledby="model-h">
+    <h2 id="model-h">Model</h2>
+
+    @if (providers() === null) {
+      <p class="notice bad">The provider list could not be loaded. Refresh to try again.</p>
+    } @else if (providers() === undefined) {
+      <p class="caption"><span class="spinner"></span></p>
+    } @else {
+      <div class="field">
+        <label for="provider">Provider</label>
+        <select id="provider" class="select" [value]="settings.provider()" (change)="chooseProvider($any($event.target).value)">
+          @for (p of providers(); track p.id) {
+            <option [value]="p.id" [selected]="p.id === settings.provider()">{{ p.name }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="key">API key</label>
+        <div class="key-row">
+          <input
+            id="key"
+            class="input mono"
+            [type]="showKey() ? 'text' : 'password'"
+            autocomplete="off"
+            spellcheck="false"
+            [placeholder]="provider()?.key_hint ?? ''"
+            [value]="settings.apiKey()"
+            (input)="setKey($any($event.target).value)"
+            (change)="loadModels()"
+          />
+          <button class="btn quiet small" type="button" (click)="showKey.set(!showKey())" [attr.aria-pressed]="showKey()">
+            {{ showKey() ? 'Hide' : 'Show' }}
+          </button>
+        </div>
+        <p class="hint">
+          @if (provider(); as p) {
+            <a [href]="p.key_url" target="_blank" rel="noopener">Get a {{ p.name }} key</a>.
+          }
+          Your key is sent with each request to run the model and is never stored on the server.
+        </p>
+      </div>
+
+      <div class="field">
+        <label for="model">Model</label>
+        <input
+          id="model"
+          class="input mono"
+          type="text"
+          list="model-list"
+          autocomplete="off"
+          spellcheck="false"
+          [placeholder]="models().length ? 'Choose or type a model ID' : 'Model ID'"
+          [value]="settings.model()"
+          (input)="setModel($any($event.target).value)"
+        />
+        <datalist id="model-list">
+          @for (m of models(); track m) {
+            <option [value]="m"></option>
+          }
+        </datalist>
+        <p class="hint" aria-live="polite">
+          @if (loadingModels()) {
+            Loading the models your key can use…
+          } @else if (modelsError()) {
+            {{ modelsError() }} You can still type a model ID.
+          } @else if (models().length) {
+            {{ models().length }} models available from {{ provider()?.name }}. Pick one that supports tool calling.
+          } @else {
+            Add your key and the list of models loads from the provider. The model must support tool calling.
+          }
+        </p>
+      </div>
+
+      <label class="toggle">
+        <input type="checkbox" [checked]="settings.rememberKeys()" (change)="settings.setRememberKeys($any($event.target).checked)" />
+        <span>
+          Remember keys on this device
+          <small>Turn off on a shared computer. Keys are then forgotten when you close the tab.</small>
+        </span>
+      </label>
+
+      <div class="row">
+        <button class="btn" type="button" [disabled]="!settings.ready() || checking()" (click)="test()">
+          @if (checking()) {
+            <span class="spinner"></span> Testing
+          } @else {
+            Test key
+          }
+        </button>
+        @if (settings.ready()) {
+          <a class="link-arrow" routerLink="/workspace">Open workspace</a>
+        }
+      </div>
+      <div aria-live="polite">
+        @if (check(); as result) {
+          <p class="notice" [class.ok]="result.ok" [class.bad]="!result.ok">
+            <app-icon [name]="result.ok ? 'check' : 'warning'" [size]="18" /> {{ result.message }}
+          </p>
+        }
+      </div>
+    }
+  </section>
+
+  <section class="panel card" aria-labelledby="sch-h">
+    <h2 id="sch-h">Scholarly APIs <span class="optional">Optional</span></h2>
+    <p class="caption">
+      Literature search works without keys. Adding them raises rate limits; Semantic Scholar in particular often
+      refuses requests that have no key.
+    </p>
+    <div class="field">
+      <label for="s2">Semantic Scholar API key</label>
+      <input
+        id="s2"
+        class="input mono"
+        type="password"
+        autocomplete="off"
+        [value]="settings.s2Key()"
+        (input)="settings.setScholarlyKeys($any($event.target).value, settings.ncbiKey())"
+      />
+    </div>
+    <div class="field">
+      <label for="ncbi">NCBI (PubMed) API key</label>
+      <input
+        id="ncbi"
+        class="input mono"
+        type="password"
+        autocomplete="off"
+        [value]="settings.ncbiKey()"
+        (input)="settings.setScholarlyKeys(settings.s2Key(), $any($event.target).value)"
+      />
+    </div>
+  </section>
+
+  <section class="panel card" aria-labelledby="look-h">
+    <h2 id="look-h">Appearance</h2>
+    <div class="segmented" role="radiogroup" aria-label="Appearance">
+      @for (t of themes; track t.id) {
+        <button type="button" role="radio" [attr.aria-checked]="settings.theme() === t.id" (click)="settings.setTheme(t.id)">
+          <app-icon [name]="t.icon" [size]="16" /> {{ t.label }}
+        </button>
+      }
+    </div>
+  </section>
+
+  <section class="panel card" aria-labelledby="data-h">
+    <h2 id="data-h">Your data</h2>
+    <p class="caption">
+      Conversations and keys live in this browser's storage. There are no accounts, and the server keeps nothing
+      after a request ends. Search terms go to the scholarly indexes, and your messages go to the model provider you chose.
+    </p>
+    <div class="row">
+      <button class="btn danger small" type="button" (click)="clearChats()">Delete all conversations</button>
+      <button class="btn danger small" type="button" (click)="clearKeys()">Remove all keys</button>
+    </div>
+    <p class="caption" aria-live="polite">{{ cleared() }}</p>
+  </section>
+</div>
+<app-footer />

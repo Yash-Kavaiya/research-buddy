@@ -1,0 +1,122 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  background: var(--bg-alt);
+}
+
+.page {
+  --page-width: 680px;
+  display: grid;
+  gap: 18px;
+  padding-top: clamp(40px, 6vw, 72px);
+  padding-bottom: clamp(56px, 8vw, 96px);
+}
+
+.head {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.panel {
+  display: grid;
+  gap: 20px;
+  padding: clamp(20px, 4vw, 32px);
+
+  h2 {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+  }
+}
+
+.optional {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-3);
+}
+
+.key-row {
+  display: flex;
+  gap: 8px;
+
+  .btn {
+    min-height: 44px;
+    border-radius: var(--radius-m);
+  }
+}
+
+.input.mono {
+  font-size: 14px;
+}
+
+.toggle {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 15px;
+  cursor: pointer;
+
+  input {
+    width: 18px;
+    height: 18px;
+    margin: 3px 0 0;
+    accent-color: var(--accent);
+  }
+
+  small {
+    display: block;
+    font-size: 13px;
+    color: var(--text-2);
+  }
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 22px;
+}
+
+.segmented {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--bg-inset);
+  justify-self: start;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 34px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 14px;
+
+    &[aria-checked='true'] {
+      background: var(--bg-elevated);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+      font-weight: 600;
+    }
+  }
+}
+
+@media (max-width: 420px) {
+  .segmented {
+    justify-self: stretch;
+
+    button {
+      padding: 0 8px;
+    }
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "1. Finding a problem": {
+    "research-gap-finder": "Scans recent papers on a topic and lists open problems, contradictions, and under-explored areas",
+    "research-question-formulator": "Turns a vague interest into testable questions and hypotheses (PICO, FINER)",
+    "novelty-checker": "Checks whether an idea has already been done and finds the closest prior work",
+    "topic-trend-analyzer": "Tracks publication volume, rising keywords, and hot subfields over time"
+  },
+  "2. Literature discovery and reading": {
+    "paper-search": "Unified search across arXiv, Semantic Scholar, OpenAlex, PubMed, and Crossref",
+    "citation-graph-explorer": "Forward and backward citation chasing and seminal-paper detection",
+    "paper-summarizer": "Structured summary covering problem, method, data, results, limitations",
+    "paper-critic": "Critical reading for weak assumptions, missing baselines, and threats to validity",
+    "paper-comparison-matrix": "A table comparing N papers on method, dataset, metrics, and results",
+    "math-and-equation-explainer": "Step-by-step explanation of derivations and notation"
+  },
+  "3. Literature review": {
+    "systematic-review-prisma": "Full PRISMA workflow with search strings, screening, inclusion criteria, and flow diagram",
+    "literature-review-writer": "Thematic synthesis rather than paper-by-paper summaries",
+    "related-work-writer": "A related-work section positioned against your contribution",
+    "annotated-bibliography-builder": "Annotated entries with relevance notes"
+  },
+  "4. Research design and methodology": {
+    "methodology-designer": "Picks qualitative, quantitative, or mixed design with justification",
+    "experiment-planner": "Variables, controls, baselines, ablations, and compute budget",
+    "sample-size-power-calculator": "Power analysis and sample size justification",
+    "survey-questionnaire-designer": "Likert scales, validity checks, and pilot plan",
+    "dataset-finder": "Locates datasets on Hugging Face, Kaggle, UCI, and Papers with Code",
+    "ethics-irb-drafter": "Ethics application, consent forms, and data management plan"
+  },
+  "5. Experiments and analysis": {
+    "paper-to-code-reproducer": "Implements a paper's method from the PDF",
+    "statistical-test-selector": "Picks the right test, runs it, and reports in APA style",
+    "results-interpreter": "Turns raw numbers into findings, with honest caveats",
+    "ablation-study-designer": "Decides which components to remove and how to report it",
+    "qualitative-coding-assistant": "Thematic coding of interviews and transcripts",
+    "experiment-logger": "Lab notebook that tracks runs, configs, and decisions"
+  },
+  "6. Writing": {
+    "paper-outline-generator": "IMRaD outline adapted to the target venue",
+    "abstract-writer": "Structured abstract within word limits",
+    "introduction-writer": "Context, gap, contribution, and outline flow",
+    "academic-tone-editor": "Fixes clarity, hedging, and concision, and removes AI-sounding prose",
+    "latex-paper-formatter": "Converts drafts to IEEE, ACM, Springer, NeurIPS, or ACL templates",
+    "thesis-chapter-writer": "Long-form chapters with consistent cross-chapter terminology",
+    "limitations-and-future-work-writer": "The section people usually write poorly"
+  },
+  "7. Figures and tables": {
+    "publication-figure-maker": "matplotlib and TikZ plots at journal quality",
+    "architecture-diagram-maker": "Model and pipeline diagrams",
+    "latex-table-generator": "Converts CSV to booktabs tables with best results bolded"
+  },
+  "8. Citations and integrity": {
+    "citation-verifier": "Confirms every reference exists and supports the claim (catches hallucinated citations)",
+    "bibtex-manager": "Cleans, deduplicates, and fixes BibTeX entries",
+    "citation-style-converter": "Converts between APA, IEEE, Vancouver, and Harvard",
+    "plagiarism-and-paraphrase-checker": "Flags text that is too close to its source",
+    "reproducibility-checklist": "Fills in NeurIPS or ML reproducibility checklists"
+  },
+  "9. Submission and peer review": {
+    "venue-recommender": "Matches a paper to journals and conferences by scope, impact, and deadline",
+    "self-peer-reviewer": "Simulates Reviewer 2 before you submit",
+    "rebuttal-writer": "Point-by-point response to reviewers",
+    "cover-letter-writer": "Editor cover letter with highlights",
+    "camera-ready-checker": "Page limits, anonymization, formatting, and metadata"
+  },
+  "10. Funding and career": {
+    "grant-proposal-writer": "Aims, significance, budget, and timeline (including Indian schemes such as DST, SERB, and UGC)",
+    "phd-research-proposal-writer": "Admission or synopsis proposal",
+    "sop-and-research-statement-writer": "Statement of purpose and research statement",
+    "supervisor-finder": "Finds professors by research fit and drafts a cold email"
+  },
+  "11. Dissemination": {
+    "paper-to-slides": "Conference talk deck",
+    "paper-to-poster": "Academic poster layout",
+    "paper-to-blog": "Plain-language blog post or thread",
+    "paper-to-explainer-video": "Script and animation storyboard",
+    "viva-defense-prep": "Likely examiner questions and model answers"
+  },
+  "12. Orchestrators": {
+    "research-scholar-orchestrator": "Master skill that routes a request to the right skills in sequence",
+    "idea-to-paper-pipeline": "Chains topic, gap, review, method, draft, and self-review",
+    "weekly-paper-digest": "Scheduled digest of new papers in your area",
+    "research-progress-tracker": "Milestones, supervisor meeting notes, and next actions"
+  }
+}

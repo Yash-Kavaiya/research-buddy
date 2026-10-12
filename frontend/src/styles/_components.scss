@@ -1,0 +1,239 @@
+// Shared building blocks: buttons, cards, chips, form fields.
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 22px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 17px;
+  font-weight: 400;
+  white-space: nowrap;
+  transition: background 0.2s var(--ease), opacity 0.2s var(--ease), border-color 0.2s var(--ease);
+
+  &:hover {
+    background: var(--accent-hover);
+    text-decoration: none;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  &.secondary {
+    background: transparent;
+    border-color: var(--accent);
+    color: var(--link);
+
+    &:hover {
+      background: var(--accent);
+      color: var(--on-accent);
+    }
+  }
+
+  &.quiet {
+    background: var(--bg-inset);
+    color: var(--text);
+
+    &:hover {
+      background: var(--bg-active);
+    }
+  }
+
+  &.danger {
+    background: transparent;
+    border-color: var(--border-strong);
+    color: var(--danger);
+
+    &:hover {
+      background: var(--danger-soft);
+    }
+  }
+
+  &.small {
+    min-height: 32px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-2);
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+}
+
+.link-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: inherit;
+
+  &::after {
+    content: '›';
+    font-size: 1.15em;
+    line-height: 1;
+    transform: translateY(-0.04em);
+  }
+}
+
+.card {
+  background: var(--bg-elevated);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-card);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--bg-inset);
+  color: var(--text-2);
+  font-size: 13px;
+  letter-spacing: -0.008em;
+  white-space: nowrap;
+}
+
+button.chip {
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+
+  &:hover {
+    background: var(--bg-active);
+    color: var(--text);
+  }
+
+  &[aria-pressed='true'] {
+    background: var(--text);
+    color: var(--bg);
+  }
+}
+
+.stage-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--stage, var(--text-3));
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+
+  > label,
+  > .label {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .hint {
+    font-size: 13px;
+    color: var(--text-2);
+    letter-spacing: -0.008em;
+  }
+}
+
+.input,
+.select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-m);
+  background: var(--bg-elevated);
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+
+  &::placeholder {
+    color: var(--text-3);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+}
+
+.select {
+  appearance: none;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%2386868b' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+}
+
+.notice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 16px;
+  border-radius: var(--radius-m);
+  background: var(--bg-inset);
+  font-size: 14px;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+
+  &.ok {
+    background: var(--success-soft);
+    color: var(--success);
+  }
+
+  &.bad {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.page-state {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  min-height: 40vh;
+  padding: 48px var(--gutter);
+  color: var(--text-2);
+  text-align: center;
+}

@@ -1,0 +1,194 @@
+<div class="ws">
+  <aside class="side" [class.open]="sidebarOpen()" aria-label="Conversations">
+    <button class="new" type="button" (click)="newChat()"><app-icon name="plus" [size]="16" /> New chat</button>
+    <ul>
+      @for (c of chats.conversations(); track c.id) {
+        @if (c.messages.length) {
+          <li [class.on]="c.id === chats.activeId()">
+            <button class="item" type="button" (click)="open(c)" [disabled]="chats.busy() && c.id !== chats.activeId()">
+              {{ c.title }}
+            </button>
+            <button class="icon-btn del" type="button" (click)="chats.remove(c.id)" [attr.aria-label]="'Delete ' + c.title">
+              <app-icon name="trash" [size]="15" />
+            </button>
+          </li>
+        }
+      }
+    </ul>
+    <p class="caption note">Conversations are saved in this browser only.</p>
+  </aside>
+  @if (sidebarOpen()) {
+    <button class="scrim" type="button" aria-label="Close conversations" (click)="sidebarOpen.set(false)"></button>
+  }
+
+  <section class="chat">
+    <header class="bar">
+      <button class="icon-btn menu" type="button" aria-label="Show conversations" (click)="sidebarOpen.set(true)">
+        <app-icon name="sidebar" />
+      </button>
+      <label class="picker">
+        <span class="sr-only">Skill for this conversation</span>
+        <app-icon name="sparkles" [size]="15" />
+        <select [value]="conversation()?.skill ?? ''" (change)="pin($any($event.target).value)" [disabled]="chats.busy()">
+          <option value="" [selected]="!conversation()?.skill">Any skill</option>
+          @for (group of skillGroups(); track group.index) {
+            <optgroup [label]="group.name">
+              @for (s of group.skills; track s.name) {
+                <option [value]="s.name" [selected]="s.name === conversation()?.skill">{{ s.title }}</option>
+              }
+            </optgroup>
+          }
+        </select>
+      </label>
+      <span class="spacer"></span>
+      <span class="model caption mono" [title]="settings.provider() + ' · ' + settings.model()">{{ settings.model() }}</span>
+      <button class="icon-btn" type="button" aria-label="Download this conversation as Markdown" title="Download as Markdown"
+        (click)="exportChat()" [disabled]="!messages().length">
+        <app-icon name="download" />
+      </button>
+    </header>
+
+    <div class="scroll" #scroller>
+      <div class="column">
+        @if (!messages().length) {
+          <div class="empty">
+            <img src="favicon.svg" width="56" height="56" alt="" />
+            @if (pinned(); as skill) {
+              <h1 class="title">{{ skill.title }}</h1>
+              <p class="lead">{{ skill.summary }}.</p>
+              <a class="link-arrow" [routerLink]="['/skills', skill.name]">Read how this skill works</a>
+            } @else {
+              <h1 class="title">What are you working on?</h1>
+              <p class="lead">Describe the task. I'll pick the right skill and show my work.</p>
+              <ul class="suggest">
+                @for (s of suggestions; track s) {
+                  <li><button type="button" (click)="onInput(s); box.focus()">{{ s }}</button></li>
+                }
+              </ul>
+            }
+          </div>
+        }
+
+        @for (m of messages(); track m.id) {
+          @if (m.role === 'user') {
+            <div class="msg user">
+              <p class="bubble">{{ m.blocks[0]?.type === 'text' ? $any(m.blocks[0]).text : '' }}</p>
+              @if (m.attachments?.length) {
+                <p class="caption files"><app-icon name="paperclip" [size]="13" /> {{ m.attachments!.join(', ') }}</p>
+              }
+            </div>
+          } @else {
+            <div class="msg bot">
+              @for (b of m.blocks; track $index) {
+                @if (b.type === 'text') {
+                  <app-markdown [source]="b.text" />
+                } @else if (b.preview) {
+                  <details class="act" [class.bad]="b.status === 'error'">
+                    <summary>
+                      <app-icon [name]="b.status === 'error' ? 'warning' : 'terminal'" [size]="15" />
+                      <span class="label">{{ b.label }}</span>
+                      @if (b.detail) { <span class="detail mono">{{ b.detail }}</span> }
+                      <app-icon class="caret" name="chevron" [size]="13" />
+                    </summary>
+                    <pre class="mono">{{ b.preview }}</pre>
+                  </details>
+                } @else {
+                  <p class="act">
+                    @if (b.status === 'running') {
+                      <span class="spinner"></span>
+                    } @else {
+                      <app-icon [name]="b.kind === 'skill' ? 'sparkles' : 'book'" [size]="15" />
+                    }
+                    @if (b.kind === 'skill') {
+                      <span class="label">Using <a [routerLink]="['/skills', b.name]">{{ b.name }}</a></span>
+                    } @else {
+                      <span class="label">{{ b.label }}</span>
+                      @if (b.detail) { <span class="detail mono">{{ b.detail }}</span> }
+                    }
+                  </p>
+                }
+              }
+
+              @if (m.pending && m.blocks.at(-1)?.type !== 'text') {
+                <p class="typing" aria-label="Working"><i></i><i></i><i></i></p>
+              }
+
+              @if (m.error) {
+                <div class="notice bad" role="alert">
+                  <app-icon name="warning" [size]="18" />
+                  <span>
+                    {{ m.error }}
+                    @if (m.error.includes('Settings')) { <a routerLink="/settings">Open Settings</a> }
+                  </span>
+                </div>
+              }
+
+              @if (!m.pending) {
+                <div class="tools">
+                  @if (m.blocks.length) {
+                    <button class="icon-btn" type="button" (click)="copy(m)" [attr.aria-label]="copied() === m.id ? 'Copied' : 'Copy answer'" title="Copy">
+                      <app-icon [name]="copied() === m.id ? 'check' : 'copy'" [size]="16" />
+                    </button>
+                  }
+                  @if (isLast(m)) {
+                    <button class="icon-btn" type="button" (click)="chats.regenerate()" aria-label="Try again" title="Try again" [disabled]="!settings.ready()">
+                      <app-icon name="retry" [size]="16" />
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+    <footer class="dock">
+      <div class="column">
+        @if (!settings.ready()) {
+          <p class="notice">
+            <app-icon name="key" [size]="18" />
+            <span>Add your model API key to start. <a routerLink="/settings">Open Settings</a></span>
+          </p>
+        }
+        @if (fileError()) {
+          <p class="notice bad" role="alert">{{ fileError() }}</p>
+        }
+        <form class="composer" (submit)="$event.preventDefault(); send()">
+          @if (chats.activeAttachments().length) {
+            <ul class="attached">
+              @for (f of chats.activeAttachments(); track f.name) {
+                <li class="chip">
+                  <app-icon name="doc" [size]="13" /> {{ f.name }} <span class="size">{{ kb(f.size) }}</span>
+                  <button type="button" (click)="chats.detach(f.name)" [attr.aria-label]="'Remove ' + f.name"><app-icon name="close" [size]="12" /></button>
+                </li>
+              }
+            </ul>
+          }
+          <textarea
+            #box
+            rows="1"
+            placeholder="Ask about your research"
+            aria-label="Message"
+            [value]="draft()"
+            (input)="onInput(box.value)"
+            (keydown)="onKeydown($event)"
+          ></textarea>
+          <div class="controls">
+            <input #file type="file" hidden multiple accept=".bib,.csv,.tsv,.tex,.txt,.md,.json,.ris,.yaml,.yml,.pdf" (change)="addFiles(file)" />
+            <button class="icon-btn" type="button" aria-label="Attach files" title="Attach .bib, .csv, .tex, .txt, .md, .json, or .pdf" (click)="file.click()">
+              <app-icon name="paperclip" />
+            </button>
+            <span class="spacer"></span>
+            @if (chats.busy()) {
+              <button class="go" type="button" aria-label="Stop" (click)="chats.stop()"><app-icon name="stop" [size]="20" /></button>
+            } @else {
+              <button class="go" type="submit" aria-label="Send" [disabled]="!canSend()"><app-icon name="send" [size]="20" /></button>
+            }
+          </div>
+        </form>
+        <p class="caption fine">Check what matters before you rely on it. Attached files stay for this session only.</p>
+      </div>
+    </footer>
+  </section>
+</div>

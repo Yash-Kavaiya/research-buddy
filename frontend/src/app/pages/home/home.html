@@ -1,0 +1,125 @@
+<section class="hero">
+  <div class="container hero-inner">
+    <p class="eyebrow">Research Buddy</p>
+    <h1 class="display">From first question<br />to final defence.</h1>
+    <p class="lead">
+      59 research skills in one workspace. Search the literature, verify citations, run the statistics, and draft
+      with an agent that follows a method for each step. You bring the model key.
+    </p>
+    <div class="actions">
+      <a class="btn" routerLink="/workspace">Open workspace</a>
+      <a class="link-arrow" routerLink="/skills">Browse the skills</a>
+    </div>
+
+    <div class="demo card" aria-hidden="true">
+      <div class="demo-bar"><i></i><i></i><i></i></div>
+      <div class="demo-body">
+        <p class="bubble">How many participants do I need to detect a medium effect between two groups?</p>
+        <p class="step"><app-icon name="sparkles" [size]="15" /> Using sample-size-power-calculator</p>
+        <p class="step"><app-icon name="terminal" [size]="15" /> Ran power_calc.py <span class="mono">ttest-ind --effect 0.5 --power 0.8</span></p>
+        <p class="answer">
+          You need <strong>64 participants per group</strong> (128 in total) for 80% power at α = 0.05, two-sided.
+          Plan for 15% dropout and recruit 76 per group.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="facts" aria-label="At a glance">
+  <dl class="container">
+    <div><dt>59</dt><dd>skills</dd></div>
+    <div><dt>12</dt><dd>lifecycle stages</dd></div>
+    <div><dt>5</dt><dd>scholarly indexes</dd></div>
+    <div><dt>6</dt><dd>model providers</dd></div>
+  </dl>
+</section>
+
+<section class="band alt">
+  <div class="container">
+    <header class="band-head">
+      <h2 class="headline">A skill for every step.</h2>
+      <p class="lead">Each one tells the agent what to ask, how to do the work, what to deliver, and what to avoid.</p>
+    </header>
+
+    @if (failed()) {
+      <p class="notice bad">The skill catalog could not be loaded. Refresh to try again.</p>
+    } @else {
+      <ul class="stages">
+        @for (stage of stages(); track stage.index) {
+          <li>
+            <a class="stage card" routerLink="/skills" [queryParams]="{ stage: stage.index }" [style.--stage]="'var(--stage-' + stage.index + ')'">
+              <span class="num">{{ stage.index }}</span>
+              <h3>{{ stage.name }}</h3>
+              <p>{{ stage.skills.slice(0, 3).join(', ') }}@if (stage.skills.length > 3) {, and {{ stage.skills.length - 3 }} more}</p>
+            </a>
+          </li>
+        } @empty {
+          @for (item of placeholders; track $index) {
+            <li><div class="stage card skeleton"></div></li>
+          }
+        }
+      </ul>
+    }
+  </div>
+</section>
+
+<section class="band">
+  <div class="container">
+    <header class="band-head">
+      <h2 class="headline">Built to be checked.</h2>
+      <p class="lead">The parts of research that should be looked up or calculated are looked up and calculated.</p>
+    </header>
+    <div class="features">
+      <article class="feature card">
+        <span class="glyph"><app-icon name="search" [size]="24" /></span>
+        <h3>Retrieved, not recalled.</h3>
+        <p>
+          Paper searches query arXiv, Semantic Scholar, OpenAlex, PubMed, and Crossref and return real records.
+          The agent cites only what it retrieved or what you supplied.
+        </p>
+      </article>
+      <article class="feature card">
+        <span class="glyph"><app-icon name="terminal" [size]="24" /></span>
+        <h3>Computed, not guessed.</h3>
+        <p>
+          Power analysis, statistical tests, citation checks, PRISMA counts, and LaTeX tables run as scripts.
+          You see each command and its output beside the answer.
+        </p>
+      </article>
+      <article class="feature card">
+        <span class="glyph"><app-icon name="lock" [size]="24" /></span>
+        <h3>Your key. Your model.</h3>
+        <p>
+          Use your own key for {{ providers.join(', ') }}. It stays in your browser, travels with each request,
+          and is never stored on our server.
+        </p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="band alt">
+  <div class="container">
+    <header class="band-head">
+      <h2 class="headline">Ask in plain language.</h2>
+      <p class="lead">Describe the task. The agent picks the skill, or chains several when your goal spans stages.</p>
+    </header>
+    <ul class="examples">
+      @for (example of examples; track example.prompt) {
+        <li>
+          <a class="example card" routerLink="/workspace" [queryParams]="{ prompt: example.prompt }">
+            <span class="quote">“{{ example.prompt }}”</span>
+            <span class="caption mono">{{ example.skill }}</span>
+          </a>
+        </li>
+      }
+    </ul>
+    <div class="closing">
+      <a class="btn" routerLink="/workspace">Start a conversation</a>
+      <a class="link-arrow" routerLink="/settings">Add your API key</a>
+    </div>
+  </div>
+</section>
+
+<app-footer />

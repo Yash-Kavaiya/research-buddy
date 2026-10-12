@@ -1,0 +1,7 @@
+fastapi
+google-adk
+litellm
+numpy
+scipy
+pypdf
+httpx
