@@ -1,8 +1,9 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 
 import { ChatStreamService } from './chat-stream';
-import { Activity, Attachment, Block, Conversation, Message, StreamEvent, messageText } from './models';
+import { Activity, Attachment, Block, Conversation, Message, StreamEvent, Thumb, messageText } from './models';
 import { readJson, storage, writeJson } from './storage';
+import { UsageStore } from './usage.store';
 
 const STORE_KEY = 'rb.conversations';
 const ACTIVE_KEY = 'rb.activeConversation';
@@ -48,6 +49,7 @@ export function describeTool(name: string, args: Record<string, unknown>): { lab
 @Injectable({ providedIn: 'root' })
 export class ChatStore {
   private readonly stream = inject(ChatStreamService);
+  private readonly usage = inject(UsageStore);
   private abort: AbortController | null = null;
 
   readonly conversations = signal<Conversation[]>(sanitize(readJson(storage('local'), STORE_KEY, [])));
@@ -71,17 +73,19 @@ export class ChatStore {
     effect(() => writeJson(storage('local'), ACTIVE_KEY, this.activeId()));
   }
 
-  create(skill: string | null = null): Conversation {
-    const empty = this.conversations().find((c) => !c.messages.length);
+  create(skill: string | null = null, projectId: string | null = null): Conversation {
+    const empty = this.conversations().find((c) => !c.messages.length && (c.projectId ?? null) === projectId);
     if (empty) {
-      this.patch(empty.id, (c) => ({ ...c, skill, updatedAt: Date.now() }));
+      this.patch(empty.id, (c) => ({ ...c, skill, projectId, updatedAt: Date.now() }));
       this.activeId.set(empty.id);
-      return { ...empty, skill };
+      return { ...empty, skill, projectId };
     }
     const conversation: Conversation = {
       id: uid(),
       title: 'New chat',
       skill,
+      projectId,
+      deep: false,
       messages: [],
       updatedAt: Date.now(),
     };
@@ -111,6 +115,53 @@ export class ChatStore {
   setSkill(skill: string | null): void {
     const id = this.activeId();
     if (id) this.patch(id, (c) => ({ ...c, skill }));
+  }
+
+  setProject(id: string, projectId: string | null): void {
+    this.patch(id, (c) => ({ ...c, projectId }));
+  }
+
+  releaseProject(projectId: string): void {
+    this.conversations.update((list) => list.map((c) => (c.projectId === projectId ? { ...c, projectId: null } : c)));
+  }
+
+  setDeep(deep: boolean): void {
+    const id = this.activeId() ?? this.create().id;
+    this.patch(id, (c) => ({ ...c, deep }));
+  }
+
+  rateMessage(messageId: string, feedback: Thumb): void {
+    const id = this.activeId();
+    if (!id) return;
+    this.patch(id, (c) => ({
+      ...c,
+      messages: c.messages.map((m) => (m.id === messageId ? { ...m, feedback } : m)),
+    }));
+  }
+
+  /** Copy this chat up to a message into a new conversation. */
+  branchAt(messageId: string): Conversation | null {
+    const current = this.active();
+    if (!current || this.busy()) return null;
+    const index = current.messages.findIndex((m) => m.id === messageId);
+    if (index < 0) return null;
+    const conversation: Conversation = {
+      id: uid(),
+      title: `${current.title} · branch`.slice(0, 80),
+      skill: current.skill,
+      projectId: current.projectId,
+      deep: current.deep,
+      messages: current.messages.slice(0, index + 1).map((m) => ({
+        ...m,
+        id: uid(),
+        pending: false,
+        blocks: m.blocks.map((b) => ({ ...b })),
+      })),
+      updatedAt: Date.now(),
+    };
+    this.conversations.update((list) => [conversation, ...list].slice(0, MAX_CONVERSATIONS));
+    this.activeId.set(conversation.id);
+    return conversation;
   }
 
   attach(files: Attachment[]): void {
@@ -187,6 +238,7 @@ export class ChatStore {
         message: text,
         history,
         skill: conversation.skill,
+        deep: conversation.deep,
         attachments: files.map(({ name, content, encoding }) => ({ name, content, encoding })),
       };
       for await (const event of this.stream.send(request, this.abort.signal)) {
@@ -203,12 +255,17 @@ export class ChatStore {
         update((m) => ({ ...m, error: error instanceof Error ? error.message : 'The request failed.' }));
       }
     } finally {
+      const aborted = this.abort?.signal.aborted ?? false;
       flush();
       update((m) => ({
         ...m,
         pending: false,
         blocks: m.blocks.map((b) => (b.type === 'activity' && b.status === 'running' ? { ...b, status: 'ok' } : b)),
       }));
+      const finished = this.conversations()
+        .find((c) => c.id === id)
+        ?.messages.find((m) => m.id === answer.id);
+      if (!aborted && finished && messageText(finished) && !finished.error) this.usage.completeTurn();
       this.abort = null;
       this.busy.set(false);
     }
@@ -279,6 +336,8 @@ function sanitize(value: unknown): Conversation[] {
     .map((c) => ({
       ...c,
       skill: c.skill ?? null,
+      projectId: c.projectId ?? null,
+      deep: !!c.deep,
       messages: c.messages.filter((m) => m && Array.isArray(m.blocks)).map((m) => ({ ...m, pending: false })),
     }));
 }

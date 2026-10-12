@@ -107,6 +107,7 @@ def build_agent(
     attachments: list[str] | None = None,
     script_env: dict[str, str] | None = None,
     today: datetime.date | None = None,
+    deep: bool = False,
 ) -> LlmAgent:
     catalog = load_catalog()
     instruction = INSTRUCTION.format(today=(today or datetime.date.today()).isoformat())
@@ -114,6 +115,13 @@ def build_agent(
         instruction += (
             f"\nThe user chose the `{pinned_skill}` skill for this conversation. Load it with "
             "`load_skill` before your first answer and work through it unless they ask for something else.\n"
+        )
+    if deep:
+        instruction += (
+            "\nThe user turned on Deep research for this message. Load `research-scholar-orchestrator` "
+            "before other skills. When the task needs literature, search more than one source with "
+            "`run_script`. Follow each skill you load, say what failed or could not be verified, and do not "
+            "stop after a single lookup.\n"
         )
     if attachments:
         instruction += (

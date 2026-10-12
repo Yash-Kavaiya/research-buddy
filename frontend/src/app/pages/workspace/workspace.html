@@ -9,8 +9,53 @@
         <app-icon name="close" [size]="16" />
       </button>
     </div>
+    <div class="projects">
+      @if (namingProject()) {
+        <form class="name-project" (submit)="$event.preventDefault(); addProject()">
+          <input
+            type="text"
+            placeholder="Project name"
+            [value]="projectName()"
+            (input)="projectName.set($any($event.target).value)"
+            maxlength="80"
+          />
+          <button class="btn" type="submit">Add</button>
+        </form>
+      } @else {
+        <button class="text-btn" type="button" (click)="namingProject.set(true)">
+          <app-icon name="folder" [size]="14" />
+          New project
+        </button>
+      }
+      @for (p of projects.projects(); track p.id) {
+        <section>
+          <header>
+            <span>{{ p.name }}</span>
+            <button type="button" class="icon-btn" (click)="newChat(p.id)" aria-label="New chat in project">
+              <app-icon name="plus" [size]="13" />
+            </button>
+            <button type="button" class="icon-btn" (click)="deleteProject(p.id)" aria-label="Delete project">
+              <app-icon name="trash" [size]="13" />
+            </button>
+          </header>
+          <ul class="chats">
+            @for (c of chatsIn(p.id); track c.id) {
+              <li>
+                <button type="button" class="chat-item" [class.on]="c.id === chat.activeId()" (click)="selectChat(c.id)">
+                  <span>{{ c.title }}</span>
+                </button>
+                <button class="icon-btn del" type="button" (click)="chat.remove(c.id)" aria-label="Delete chat">
+                  <app-icon name="trash" [size]="14" />
+                </button>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    </div>
+    <p class="side-label">Chats</p>
     <ul class="chats">
-      @for (c of chat.conversations(); track c.id) {
+      @for (c of chatsIn(null); track c.id) {
         <li>
           <button type="button" class="chat-item" [class.on]="c.id === chat.activeId()" (click)="selectChat(c.id)">
             <span>{{ c.title }}</span>
@@ -33,6 +78,20 @@
       <button class="icon-btn menu" type="button" (click)="sidebarOpen.set(true)" aria-label="Open chats">
         <app-icon name="menu" [size]="18" />
       </button>
+      @if (chat.active(); as head) {
+        <label class="project-pick">
+          <span class="sr">Project</span>
+          <select
+            [value]="head.projectId || ''"
+            (change)="chat.setProject(head.id, $any($event.target).value || null)"
+          >
+            <option value="" [selected]="!head.projectId">No project</option>
+            @for (p of projects.projects(); track p.id) {
+              <option [value]="p.id" [selected]="head.projectId === p.id">{{ p.name }}</option>
+            }
+          </select>
+        </label>
+      }
       <div class="skill-pin">
         <button type="button" class="pin" (click)="pinnedOpen.set(!pinnedOpen())">
           {{ chat.active()?.skill || 'Any skill' }}
@@ -91,7 +150,9 @@
                   <div class="answer">
                     @for (b of m.blocks; track $index) {
                       @if (b.type === 'text') {
-                        <app-markdown [source]="b.text" />
+                        @if (!raw()[m.id]) {
+                          <app-markdown [source]="b.text" />
+                        }
                       } @else {
                         <button type="button" class="activity" [class.err]="b.status === 'error'" (click)="toggleActivity(b.id)">
                           <span class="spin" [class.on]="b.status === 'running'"></span>
@@ -116,10 +177,24 @@
                         }
                       </p>
                     }
+                    @if (raw()[m.id]) {
+                      <pre class="preview">{{ messagePlain(m.id) }}</pre>
+                    }
                     @if (!m.pending && (m.blocks.length || m.error)) {
                       <div class="msg-actions">
-                        <button class="icon-btn" type="button" (click)="copy(m.id, messagePlain(m.id))" [attr.aria-label]="copied() === m.id ? 'Copied' : 'Copy'">
-                          <app-icon [name]="copied() === m.id ? 'check' : 'copy'" [size]="15" />
+                        <button type="button" (click)="copy(m.id, messagePlain(m.id))">
+                          {{ copied() === 'copy:' + m.id ? 'Copied' : 'Copy' }}
+                        </button>
+                        <button type="button" (click)="toggleMarkdown(m.id)">
+                          {{ raw()[m.id] ? 'Preview' : 'Markdown' }}
+                        </button>
+                        <button type="button" (click)="share(m)">Share</button>
+                        <button type="button" (click)="branch(m.id)">Branch</button>
+                        <button type="button" [class.on]="m.feedback === 'up'" (click)="rate(m.id, 'up')" aria-label="Thumbs up">
+                          <app-icon name="up" [size]="14" />
+                        </button>
+                        <button type="button" [class.on]="m.feedback === 'down'" (click)="rate(m.id, 'down')" aria-label="Thumbs down">
+                          <app-icon name="down" [size]="14" />
                         </button>
                       </div>
                     }
@@ -148,6 +223,19 @@
           }
         </div>
       }
+      <div class="modes">
+        <button
+          type="button"
+          class="mode"
+          [class.on]="chat.active()?.deep"
+          (click)="chat.setDeep(!chat.active()?.deep)"
+        >
+          Deep research
+        </button>
+        @if (notice()) {
+          <span class="notice">{{ notice() }}</span>
+        }
+      </div>
       <div class="box">
         <label class="icon-btn attach">
           <input type="file" multiple hidden (change)="onFiles($event)" />
@@ -177,6 +265,9 @@
           <button class="regenerate" type="button" (click)="chat.regenerate()">Regenerate last answer</button>
         }
       }
+      <p class="fineprint">
+        Research Buddy can make mistakes. Verify citations, statistics, and venue rules before you rely on them.
+      </p>
     </form>
   </section>
 </div>

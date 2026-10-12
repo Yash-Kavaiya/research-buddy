@@ -65,6 +65,8 @@ export interface TextBlock {
 
 export type Block = TextBlock | Activity;
 
+export type Thumb = 'up' | 'down';
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -72,14 +74,31 @@ export interface Message {
   pending?: boolean;
   error?: string;
   attachments?: string[];
+  feedback?: Thumb;
 }
 
 export interface Conversation {
   id: string;
   title: string;
   skill: string | null;
+  projectId: string | null;
+  deep: boolean;
   messages: Message[];
   updatedAt: number;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  createdAt: number;
+}
+
+export interface Review {
+  id: string;
+  kind: Thumb | 'review';
+  message: string;
+  source: 'popup' | 'message' | 'support';
+  at: number;
 }
 
 export type StreamEvent =

@@ -115,6 +115,42 @@ def test_chat_streams_mocked_turn(client: TestClient) -> None:
         assert "event: done" in text
 
 
+def test_connectors(client: TestClient) -> None:
+    response = client.get("/api/connectors")
+    assert response.status_code == 200
+    ids = [c["id"] for c in response.json()["connectors"]]
+    assert ids == ["arxiv", "crossref", "openalex", "s2", "ncbi"]
+
+
+def test_feedback_accepts_review(client: TestClient) -> None:
+    response = client.post("/api/feedback", json={"kind": "up", "message": "Clear citations.", "source": "popup"})
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+
+
+def test_feedback_rejects_empty_kind(client: TestClient) -> None:
+    response = client.post("/api/feedback", json={"kind": "maybe"})
+    assert response.status_code == 422
+
+
+def test_chat_accepts_deep_flag(client: TestClient) -> None:
+    async def fake_turn(*_args, **_kwargs):
+        yield {"type": "text", "delta": "Deep pass."}
+
+    with patch("app.routers.chat.factory.build_agent") as build, patch(
+        "app.routers.chat.run_turn", fake_turn
+    ):
+        build.return_value = object()
+        response = client.post(
+            "/api/chat",
+            json={"message": "map this field", "deep": True},
+            headers={"X-LLM-Provider": "google", "X-LLM-Model": "gemini-2.5-flash", "X-LLM-Key": "sk-test"},
+        )
+        assert response.status_code == 200
+        assert "Deep pass." in response.text
+        assert build.call_args.kwargs["deep"] is True
+
+
 def test_catalog_matches_disk() -> None:
     catalog = load_catalog()
     assert len(catalog) == 59
