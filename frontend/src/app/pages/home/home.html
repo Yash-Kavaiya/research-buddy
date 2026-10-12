@@ -1,0 +1,50 @@
+<div class="page">
+  <section class="hero">
+    <span class="eyebrow">Research, from first question to defence</span>
+    <h1>A research assistant that works through real skills, not a chat that guesses.</h1>
+    <p class="lede">
+      Research Buddy loads the research-scholar skill library — literature search, study design, writing,
+      citations, submission — and runs the parts that must be computed. You bring your own model key. Nothing
+      is stored on the server.
+    </p>
+    <div class="actions">
+      <a class="btn" routerLink="/workspace">Open workspace</a>
+      <a class="btn btn-ghost" routerLink="/skills">Browse skills</a>
+    </div>
+  </section>
+
+  <section class="strip">
+    <article>
+      <h2>Bring your own key</h2>
+      <p>Gemini, OpenAI, Anthropic, Groq, OpenRouter, or NVIDIA. The key is sent only as a request header.</p>
+    </article>
+    <article>
+      <h2>Fifty-nine skills</h2>
+      <p>The full research lifecycle, from finding a problem to defending the thesis, plus orchestrators.</p>
+    </article>
+    <article>
+      <h2>Scripts, not memory</h2>
+      <p>Paper search, citation checks, statistics, and tables run as Python — they are not invented.</p>
+    </article>
+  </section>
+
+  @if (catalog(); as cat) {
+    <section class="stages">
+      <header>
+        <span class="eyebrow">Lifecycle</span>
+        <h2>Twelve stages. Pick a place to start.</h2>
+      </header>
+      <div class="grid">
+        @for (stage of cat.stages; track stage.id) {
+          <a class="stage card" [routerLink]="'/skills'" [queryParams]="{ stage: stage.id }">
+            <i class="dot" [style.background]="'var(--stage-' + stage.number + ')'"></i>
+            <strong>{{ stage.name }}</strong>
+            <span>{{ countFor(cat.skills, stage.id) }} skills</span>
+          </a>
+        }
+      </div>
+    </section>
+  }
+
+  <app-footer />
+</div>

@@ -1,0 +1,79 @@
+.head {
+  margin-bottom: 32px;
+
+  h1 {
+    font-size: 40px;
+    margin-bottom: 8px;
+  }
+}
+
+h2 {
+  margin: 28px 0 10px;
+  font-size: 20px;
+}
+
+.optional {
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.note {
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.key-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.status {
+  font-size: 14px;
+
+  &.ok {
+    color: var(--success);
+  }
+  &.bad {
+    color: var(--danger);
+  }
+}
+
+.theme .inset-row {
+  justify-content: flex-start;
+
+  span:first-of-type {
+    flex: 1;
+  }
+
+  &.on {
+    font-weight: 600;
+  }
+}
+
+.inset-row span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+
+  em {
+    font-style: normal;
+    font-size: 13px;
+    color: var(--text-3);
+    font-weight: 400;
+  }
+}
+
+.jump {
+  margin-top: 36px;
+}

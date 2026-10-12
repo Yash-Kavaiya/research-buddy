@@ -1,0 +1,114 @@
+.md {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text);
+  overflow-wrap: anywhere;
+
+  > *:first-child {
+    margin-top: 0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    margin: 1.4em 0 0.5em;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+  }
+
+  h1 {
+    font-size: 1.5em;
+  }
+  h2 {
+    font-size: 1.25em;
+  }
+  h3 {
+    font-size: 1.1em;
+  }
+
+  p,
+  ul,
+  ol {
+    margin: 0 0 0.9em;
+    color: var(--text);
+  }
+
+  li {
+    margin: 0.2em 0;
+  }
+
+  a {
+    color: var(--link);
+  }
+
+  blockquote {
+    margin: 0 0 0.9em;
+    padding: 0 0 0 14px;
+    border-left: 3px solid var(--border-strong);
+    color: var(--text-2);
+  }
+
+  table {
+    width: 100%;
+    margin: 0 0 1em;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  th,
+  td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    color: var(--text-2);
+    font-weight: 600;
+  }
+
+  pre {
+    margin: 0 0 1em;
+    padding: 14px 16px;
+    overflow: auto;
+    border-radius: var(--radius-m);
+    background: var(--bg-inset);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  :not(pre) > code {
+    padding: 0.15em 0.4em;
+    border-radius: 5px;
+    background: var(--bg-inset);
+    font-size: 0.9em;
+  }
+
+  .katex-display {
+    margin: 0.8em 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .hljs-keyword,
+  .hljs-selector-tag {
+    color: var(--code-kw);
+  }
+  .hljs-string,
+  .hljs-attr {
+    color: var(--code-str);
+  }
+  .hljs-number {
+    color: var(--code-num);
+  }
+  .hljs-comment {
+    color: var(--code-com);
+  }
+  .hljs-title,
+  .hljs-function {
+    color: var(--code-fn);
+  }
+}

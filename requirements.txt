@@ -1,0 +1,6 @@
+fastapi==0.141.1
+google-adk==2.11.0
+litellm==1.105.0
+numpy==2.5.4
+scipy==1.18.1
+pypdf==6.20.0

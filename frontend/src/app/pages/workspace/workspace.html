@@ -1,0 +1,182 @@
+<div class="workspace" [class.nav-open]="sidebarOpen()">
+  <aside class="sidebar">
+    <div class="side-head">
+      <button class="btn btn-ghost new" type="button" (click)="newChat()">
+        <app-icon name="plus" [size]="15" />
+        New chat
+      </button>
+      <button class="icon-btn close-side" type="button" (click)="sidebarOpen.set(false)" aria-label="Close sidebar">
+        <app-icon name="close" [size]="16" />
+      </button>
+    </div>
+    <ul class="chats">
+      @for (c of chat.conversations(); track c.id) {
+        <li>
+          <button type="button" class="chat-item" [class.on]="c.id === chat.activeId()" (click)="selectChat(c.id)">
+            <span>{{ c.title }}</span>
+            <time>{{ c.updatedAt | date: 'MMM d' }}</time>
+          </button>
+          <button class="icon-btn del" type="button" (click)="chat.remove(c.id)" aria-label="Delete chat">
+            <app-icon name="trash" [size]="14" />
+          </button>
+        </li>
+      }
+    </ul>
+  </aside>
+
+  @if (sidebarOpen()) {
+    <button class="scrim" type="button" (click)="sidebarOpen.set(false)" aria-label="Close sidebar"></button>
+  }
+
+  <section class="pane">
+    <header class="pane-head">
+      <button class="icon-btn menu" type="button" (click)="sidebarOpen.set(true)" aria-label="Open chats">
+        <app-icon name="menu" [size]="18" />
+      </button>
+      <div class="skill-pin">
+        <button type="button" class="pin" (click)="pinnedOpen.set(!pinnedOpen())">
+          {{ chat.active()?.skill || 'Any skill' }}
+          <app-icon name="chevron" [size]="14" />
+        </button>
+        @if (pinnedOpen() && catalog(); as cat) {
+          <div class="menu-list" role="listbox">
+            <button type="button" (click)="setSkill('')">Any skill</button>
+            @for (s of cat.skills; track s.name) {
+              <button type="button" (click)="setSkill(s.name)">{{ s.name }}</button>
+            }
+          </div>
+        }
+      </div>
+    </header>
+
+    <div class="scroller" #scroller (scroll)="onScroll($event)">
+      @if (!settings.ready()) {
+        <div class="banner">
+          <span>Add a provider, model, and API key in Settings to start.</span>
+          <a class="btn" routerLink="/settings">Settings</a>
+        </div>
+      }
+
+      @if (chat.active(); as convo) {
+        @if (!convo.messages.length) {
+          <div class="empty">
+            <h1>What are you working on?</h1>
+            <p>Ask in your own words. The assistant will load a research skill and, when needed, run its scripts.</p>
+            <div class="starters">
+              @for (s of starters; track s) {
+                <button type="button" class="card starter" (click)="useStarter(s)">{{ s }}</button>
+              }
+            </div>
+          </div>
+        } @else {
+          <ol class="messages">
+            @for (m of convo.messages; track m.id) {
+              <li class="msg" [class.user]="m.role === 'user'">
+                @if (m.role === 'user') {
+                  <div class="bubble">
+                    @for (b of m.blocks; track $index) {
+                      @if (b.type === 'text') {
+                        <pre class="plain">{{ b.text }}</pre>
+                      }
+                    }
+                    @if (m.attachments?.length) {
+                      <div class="chips">
+                        @for (n of m.attachments; track n) {
+                          <span class="pill">{{ n }}</span>
+                        }
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="answer">
+                    @for (b of m.blocks; track $index) {
+                      @if (b.type === 'text') {
+                        <app-markdown [source]="b.text" />
+                      } @else {
+                        <button type="button" class="activity" [class.err]="b.status === 'error'" (click)="toggleActivity(b.id)">
+                          <span class="spin" [class.on]="b.status === 'running'"></span>
+                          <span>{{ b.label }}</span>
+                          @if (b.detail) {
+                            <em>{{ b.detail }}</em>
+                          }
+                        </button>
+                        @if (expanded()[b.id] && b.preview) {
+                          <pre class="preview">{{ b.preview }}</pre>
+                        }
+                      }
+                    }
+                    @if (m.pending && !m.blocks.length) {
+                      <span class="spin on"></span>
+                    }
+                    @if (m.error) {
+                      <p class="err-text">
+                        {{ m.error }}
+                        @if (needsSettings(m.error)) {
+                          <a routerLink="/settings">Open Settings</a>
+                        }
+                      </p>
+                    }
+                    @if (!m.pending && (m.blocks.length || m.error)) {
+                      <div class="msg-actions">
+                        <button class="icon-btn" type="button" (click)="copy(m.id, messagePlain(m.id))" [attr.aria-label]="copied() === m.id ? 'Copied' : 'Copy'">
+                          <app-icon [name]="copied() === m.id ? 'check' : 'copy'" [size]="15" />
+                        </button>
+                      </div>
+                    }
+                  </div>
+                }
+              </li>
+            }
+          </ol>
+        }
+      }
+    </div>
+
+    <form class="composer" (submit)="$event.preventDefault(); submit()">
+      @if (chat.activeAttachments().length || attachError()) {
+        <div class="chips">
+          @for (f of chat.activeAttachments(); track f.name) {
+            <span class="pill">
+              {{ f.name }}
+              <button type="button" class="icon-btn" (click)="chat.detach(f.name)" aria-label="Remove file">
+                <app-icon name="close" [size]="12" />
+              </button>
+            </span>
+          }
+          @if (attachError()) {
+            <span class="err-text">{{ attachError() }}</span>
+          }
+        </div>
+      }
+      <div class="box">
+        <label class="icon-btn attach">
+          <input type="file" multiple hidden (change)="onFiles($event)" />
+          <app-icon name="attach" [size]="18" />
+          <span class="sr">Attach files</span>
+        </label>
+        <textarea
+          rows="1"
+          [value]="draft()"
+          (input)="onDraft($event)"
+          (keydown)="onEnter($event)"
+          placeholder="Message Research Buddy"
+          [disabled]="chat.busy()"
+        ></textarea>
+        @if (chat.busy()) {
+          <button class="icon-btn stop" type="button" (click)="chat.stop()" aria-label="Stop">
+            <app-icon name="stop" [size]="16" />
+          </button>
+        } @else {
+          <button class="icon-btn send" type="submit" [disabled]="!draft().trim() || !settings.ready()" aria-label="Send">
+            <app-icon name="send" [size]="16" />
+          </button>
+        }
+      </div>
+      @if (chat.active(); as live) {
+        @if (live.messages.length && !chat.busy()) {
+          <button class="regenerate" type="button" (click)="chat.regenerate()">Regenerate last answer</button>
+        }
+      }
+    </form>
+  </section>
+</div>
