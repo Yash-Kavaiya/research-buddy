@@ -6,3 +6,4 @@ frontend/.angular
 .playwright-mcp
 api/tests
 __pycache__
+/scripts

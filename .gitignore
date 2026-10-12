@@ -16,3 +16,5 @@ frontend/.angular/
 .vercel/
 .DS_Store
 .playwright-mcp/
+
+.vercel

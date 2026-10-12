@@ -7,7 +7,7 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 300,
-      "excludeFiles": "{frontend,scripts,.venv,api/tests,.playwright-mcp}/**"
+      "excludeFiles": "frontend/**"
     }
   },
   "rewrites": [
