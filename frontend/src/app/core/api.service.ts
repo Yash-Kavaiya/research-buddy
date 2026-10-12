@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, of, shareReplay } from 'rxjs';
 
-import { KeyCheck, Provider, SkillCatalog, SkillDetail } from './models';
+import { KeyCheck, Provider, SkillCatalog, SkillDetail, Thumb } from './models';
 import { SettingsStore } from './settings.store';
 
 @Injectable({ providedIn: 'root' })
@@ -40,6 +40,14 @@ export class ApiService {
     return this.providers$;
   }
 
+  connectors(): Observable<Connector[]> {
+    return this.http.get<{ connectors: Connector[] }>('/api/connectors').pipe(map((r) => r.connectors));
+  }
+
+  feedback(kind: Thumb | 'review', message: string, source: 'popup' | 'message' | 'support'): Observable<{ ok: boolean; message: string }> {
+    return this.http.post<{ ok: boolean; message: string }>('/api/feedback', { kind, message, source });
+  }
+
   validateKey(provider: string, model: string, key: string): Observable<KeyCheck> {
     return this.http
       .post<KeyCheck>('/api/keys/validate', null, {
@@ -47,6 +55,15 @@ export class ApiService {
       })
       .pipe(catchError((error: HttpErrorResponse) => of({ ok: false, message: errorMessage(error) })));
   }
+}
+
+export interface Connector {
+  id: string;
+  name: string;
+  detail: string;
+  kind: 'builtin' | 'email' | 'key';
+  header?: string;
+  keyUrl?: string;
 }
 
 export function errorMessage(error: unknown): string {

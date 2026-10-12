@@ -20,7 +20,8 @@ import { Icon } from '../../shared/icon';
         <h1>Settings</h1>
         <p>
           Keys are sent only as request headers to this site’s API and are never stored on the server.
-          Conversations stay in this browser.
+          Conversations stay in this browser. Scholarly keys also live under
+          <a routerLink="/connectors">Connectors</a>.
         </p>
       </header>
 

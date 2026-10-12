@@ -16,12 +16,13 @@ interface Secrets {
   llm: Record<string, string>;
   s2: string;
   ncbi: string;
+  openalex: string;
 }
 
 const PREFS_KEY = 'rb.preferences';
 const SECRETS_KEY = 'rb.secrets';
 const DEFAULT_PREFS: Preferences = { provider: 'google', models: {}, theme: 'system', rememberKeys: true };
-const NO_SECRETS: Secrets = { llm: {}, s2: '', ncbi: '' };
+const NO_SECRETS: Secrets = { llm: {}, s2: '', ncbi: '', openalex: '' };
 
 /**
  * The user's provider, model, and API keys. Keys never leave the browser except as
@@ -44,6 +45,7 @@ export class SettingsStore {
   readonly apiKey = computed(() => this.secrets().llm[this.prefs().provider] ?? '');
   readonly s2Key = computed(() => this.secrets().s2);
   readonly ncbiKey = computed(() => this.secrets().ncbi);
+  readonly openAlexEmail = computed(() => this.secrets().openalex ?? '');
   readonly ready = computed(() => !!this.apiKey() && !!this.model());
 
   constructor() {
@@ -85,6 +87,10 @@ export class SettingsStore {
     this.secrets.update((s) => ({ ...s, s2: s2.trim(), ncbi: ncbi.trim() }));
   }
 
+  setOpenAlexEmail(email: string): void {
+    this.secrets.update((s) => ({ ...s, openalex: email.trim() }));
+  }
+
   setTheme(theme: Theme): void {
     this.prefs.update((p) => ({ ...p, theme }));
   }
@@ -109,6 +115,7 @@ export class SettingsStore {
     };
     if (this.s2Key()) headers['X-S2-Key'] = this.s2Key();
     if (this.ncbiKey()) headers['X-NCBI-Key'] = this.ncbiKey();
+    if (this.openAlexEmail()) headers['X-OpenAlex-Email'] = this.openAlexEmail();
     return headers;
   }
 }

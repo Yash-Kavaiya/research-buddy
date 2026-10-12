@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 # ADK marks the skills toolset experimental and says so on every import.
 warnings.filterwarnings("ignore", category=UserWarning, module=r"google\.adk")
 
-from .routers import chat, skills  # noqa: E402
+from .routers import chat, site, skills  # noqa: E402
 
 logging.getLogger("LiteLLM").setLevel(logging.WARNING)
 
@@ -33,11 +33,15 @@ if _origins:
         CORSMiddleware,
         allow_origins=_origins,
         allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type", "X-LLM-Provider", "X-LLM-Model", "X-LLM-Key", "X-S2-Key", "X-NCBI-Key"],
+        allow_headers=[
+            "Content-Type", "X-LLM-Provider", "X-LLM-Model", "X-LLM-Key",
+            "X-S2-Key", "X-NCBI-Key", "X-OpenAlex-Email",
+        ],
     )
 
 app.include_router(skills.router, prefix="/api", tags=["catalog"])
 app.include_router(chat.router, prefix="/api", tags=["chat"])
+app.include_router(site.router, prefix="/api", tags=["site"])
 
 
 @app.middleware("http")

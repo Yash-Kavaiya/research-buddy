@@ -18,6 +18,16 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/workspace/workspace').then((m) => m.Workspace),
   },
   {
+    path: 'connectors',
+    title: 'Connectors · Research Buddy',
+    loadComponent: () => import('./pages/connectors/connectors').then((m) => m.Connectors),
+  },
+  {
+    path: 'support',
+    title: 'Support · Research Buddy',
+    loadComponent: () => import('./pages/support/support').then((m) => m.Support),
+  },
+  {
     path: 'settings',
     title: 'Settings · Research Buddy',
     loadComponent: () => import('./pages/settings/settings').then((m) => m.Settings),

@@ -1,15 +1,17 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { SettingsStore, Theme } from './core/settings.store';
 import { Icon } from './shared/icon';
+import { RatePrompt } from './shared/rate-prompt';
 
 const NEXT_THEME: Record<Theme, Theme> = { system: 'light', light: 'dark', dark: 'system' };
 const THEME_ICON: Record<Theme, string> = { system: 'auto', light: 'sun', dark: 'moon' };
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, RatePrompt],
   template: `
     <a class="skip" href="#main">Skip to content</a>
     <header class="nav">
@@ -21,6 +23,8 @@ const THEME_ICON: Record<Theme, string> = { system: 'auto', light: 'sun', dark: 
         <div class="links">
           <a routerLink="/skills" routerLinkActive="on">Skills</a>
           <a routerLink="/workspace" routerLinkActive="on">Workspace</a>
+          <a routerLink="/connectors" routerLinkActive="on">Connectors</a>
+          <a routerLink="/support" routerLinkActive="on">Support</a>
           <a routerLink="/settings" routerLinkActive="on">Settings</a>
         </div>
         <button
@@ -37,6 +41,7 @@ const THEME_ICON: Record<Theme, string> = { system: 'auto', light: 'sun', dark: 
     <main id="main" tabindex="-1">
       <router-outlet />
     </main>
+    <app-rate-prompt />
   `,
   styles: `
     :host {
@@ -102,7 +107,9 @@ const THEME_ICON: Record<Theme, string> = { system: 'auto', light: 'sun', dark: 
 
     .links {
       display: flex;
-      gap: clamp(2px, 2vw, 20px);
+      gap: clamp(2px, 2vw, 16px);
+      max-width: 70vw;
+      overflow-x: auto;
 
       a {
         padding: 6px 8px;
@@ -149,6 +156,27 @@ const THEME_ICON: Record<Theme, string> = { system: 'auto', light: 'sun', dark: 
 })
 export class App {
   private readonly settings = inject(SettingsStore);
+  private readonly document = inject(DOCUMENT);
+
+  constructor() {
+    const open = (event: Event) => this.openInNewTab(event as MouseEvent);
+    this.document.addEventListener('click', open, true);
+    inject(DestroyRef).onDestroy(() => this.document.removeEventListener('click', open, true));
+  }
+
+  /** Every link outside the top menu opens in a new tab. The menu stays in this tab. */
+  private openInNewTab(event: MouseEvent): void {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+    const anchor = (event.target as HTMLElement | null)?.closest('a');
+    if (!anchor || anchor.classList.contains('skip') || anchor.closest('header.nav')) return;
+    const href = anchor.getAttribute('href') ?? '';
+    if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('javascript:')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    window.open(anchor.href, '_blank', 'noopener,noreferrer');
+  }
 
   protected readonly themeIcon = computed(() => THEME_ICON[this.settings.theme()]);
   protected readonly themeLabel = computed(() => {

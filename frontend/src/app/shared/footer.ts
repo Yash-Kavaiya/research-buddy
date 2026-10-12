@@ -15,7 +15,15 @@ import { RouterLink } from '@angular/router';
       <p>
         <a routerLink="/settings">Settings</a>
         ·
+        <a routerLink="/connectors">Connectors</a>
+        ·
+        <a routerLink="/support">Support this project</a>
+        ·
         <a routerLink="/skills">Skill library</a>
+      </p>
+      <p class="fineprint">
+        Research Buddy can make mistakes. Verify citations, statistics, and venue rules before you rely on them.
+        Decisions stay with you.
       </p>
     </footer>
   `,
@@ -35,6 +43,13 @@ import { RouterLink } from '@angular/router';
 
     a {
       color: var(--text-2);
+    }
+
+    .fineprint {
+      margin-top: 10px;
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--text-3);
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,

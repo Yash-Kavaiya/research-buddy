@@ -23,7 +23,9 @@ Supported providers:
 | OpenRouter | any model they serve |
 | NVIDIA NIM | Llama and Nemotron hosted models |
 
-The key lives in this browser (localStorage, or sessionStorage if you turn “remember” off). Each request sends it as `X-LLM-Key`. Optional Semantic Scholar and NCBI keys raise scholarly rate limits; the skills work without them.
+The key lives in this browser (localStorage, or sessionStorage if you turn “remember” off). Each request sends it as `X-LLM-Key`. Optional Semantic Scholar, NCBI, and OpenAlex contact details raise scholarly rate limits; the skills work without them. Connect them on the Connectors page.
+
+Links outside the top menu open in a new tab. After five finished chats, a rating prompt asks for a thumbs up or down. Each answer can be copied, shown as Markdown, shared, or branched into a new chat. Chats can be grouped into projects. Deep research tells the agent to load the orchestrator and keep searching. A short disclaimer sits under the composer. Support holds a GitHub star link and a review form; reviews stay on the device.
 
 ## Architecture
 

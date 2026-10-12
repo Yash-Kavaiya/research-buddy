@@ -35,9 +35,14 @@ class Credentials(BaseModel):
     api_key: str
     s2_key: str | None = None
     ncbi_key: str | None = None
+    openalex: str | None = None
 
     def script_env(self) -> dict[str, str]:
-        env = {"S2_API_KEY": self.s2_key, "NCBI_API_KEY": self.ncbi_key}
+        env = {
+            "S2_API_KEY": self.s2_key,
+            "NCBI_API_KEY": self.ncbi_key,
+            "OPENALEX_MAILTO": self.openalex,
+        }
         return {k: v for k, v in env.items() if v}
 
 
@@ -47,6 +52,7 @@ def credentials(
     api_key: Annotated[str | None, Header(alias="X-LLM-Key")] = None,
     s2_key: Annotated[str | None, Header(alias="X-S2-Key")] = None,
     ncbi_key: Annotated[str | None, Header(alias="X-NCBI-Key")] = None,
+    openalex: Annotated[str | None, Header(alias="X-OpenAlex-Email")] = None,
 ) -> Credentials:
     if not api_key or not api_key.strip():
         raise HTTPException(401, "Add your API key in Settings to start.")
@@ -55,10 +61,14 @@ def credentials(
     model = (model or "").strip()
     if not model or len(model) > 200 or any(c.isspace() for c in model):
         raise HTTPException(400, "Choose a model in Settings.")
+    mail = (openalex or "").strip() or None
+    if mail and (len(mail) > 200 or any(c in mail for c in "\r\n ")):
+        raise HTTPException(400, "OpenAlex contact email is not valid.")
     return Credentials(
         provider=provider, model=model, api_key=api_key.strip(),
         s2_key=(s2_key or "").strip() or None,
         ncbi_key=(ncbi_key or "").strip() or None,
+        openalex=mail,
     )
 
 
@@ -77,6 +87,7 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=config.MAX_MESSAGE_CHARS)
     history: list[Turn] = Field(default_factory=list, max_length=config.MAX_HISTORY_TURNS)
     skill: str | None = None
+    deep: bool = False
     attachments: list[Attachment] = Field(default_factory=list, max_length=config.MAX_ATTACHMENTS)
 
     @model_validator(mode="after")
@@ -146,7 +157,8 @@ async def chat(body: ChatRequest, creds: Annotated[Credentials, Depends(credenti
             pinned_skill=body.skill,
             attachments=attached,
             script_env=creds.script_env(),
-            secrets=(creds.api_key, creds.s2_key or "", creds.ncbi_key or ""),
+            deep=body.deep,
+            secrets=(creds.api_key, creds.s2_key or "", creds.ncbi_key or "", creds.openalex or ""),
         )
     except BaseException:
         shutil.rmtree(workdir, ignore_errors=True)

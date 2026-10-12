@@ -7,6 +7,7 @@ export interface ChatRequestBody {
   message: string;
   history: { role: 'user' | 'assistant'; content: string }[];
   skill: string | null;
+  deep?: boolean;
   attachments: Pick<Attachment, 'name' | 'content' | 'encoding'>[];
 }
 
