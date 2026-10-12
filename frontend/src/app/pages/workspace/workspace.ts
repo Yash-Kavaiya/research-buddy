@@ -9,7 +9,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, of } from 'rxjs';
 
@@ -59,13 +59,15 @@ export class Workspace {
   private stickToBottom = true;
 
   constructor() {
-    const skill = this.route.snapshot.queryParamMap.get('skill');
-    if (skill) {
-      this.chat.create(skill);
-      void this.router.navigate([], { queryParams: {}, replaceUrl: true });
-    } else if (!this.chat.active()) {
-      this.chat.create();
-    }
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      const skill = params.get('skill');
+      if (skill) {
+        this.chat.create(skill);
+        void this.router.navigate(['/workspace'], { replaceUrl: true });
+        return;
+      }
+      if (!this.chat.active()) this.chat.create();
+    });
     afterNextRender(() => this.scrollIfNeeded());
     effect(() => {
       this.chat.active()?.messages.length;

@@ -373,11 +373,15 @@ textarea {
     z-index: 40;
     width: min(280px, 86vw);
     transform: translateX(-105%);
-    transition: transform 0.25s var(--ease);
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform 0.25s var(--ease), visibility 0.25s;
   }
 
   .workspace.nav-open .sidebar {
     transform: none;
+    visibility: visible;
+    pointer-events: auto;
   }
 
   .close-side,

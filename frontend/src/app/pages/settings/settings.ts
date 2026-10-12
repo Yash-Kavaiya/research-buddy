@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { catchError, of } from 'rxjs';
@@ -189,6 +189,15 @@ export class Settings {
   });
   protected readonly current = computed(() => this.providers()?.find((p) => p.id === this.settings.provider()) ?? null);
   protected readonly canVerify = computed(() => !!this.settings.apiKey() && !!this.settings.model());
+
+  constructor() {
+    effect(() => {
+      const p = this.current();
+      if (p && !this.settings.modelFor(p.id) && p.models[0]) {
+        this.settings.setModel(p.id, p.models[0]);
+      }
+    });
+  }
 
   protected onProvider(id: string): void {
     this.settings.setProvider(id);
