@@ -1,6 +1,7 @@
 import { DOCUMENT } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs';
 
 import { SettingsStore, Theme } from './core/settings.store';
 import { Icon } from './shared/icon';
@@ -9,35 +10,86 @@ import { RatePrompt } from './shared/rate-prompt';
 const NEXT_THEME: Record<Theme, Theme> = { system: 'light', light: 'dark', dark: 'system' };
 const THEME_ICON: Record<Theme, string> = { system: 'auto', light: 'sun', dark: 'moon' };
 
+interface NavItem {
+  path: string;
+  label: string;
+  icon: string;
+  exact?: boolean;
+}
+
+const NAV: NavItem[] = [
+  { path: '/', label: 'Home', icon: 'home', exact: true },
+  { path: '/workspace', label: 'Research', icon: 'search' },
+  { path: '/skills', label: 'Library', icon: 'library' },
+  { path: '/connectors', label: 'Connectors', icon: 'plug' },
+  { path: '/settings', label: 'Settings', icon: 'gear' },
+];
+
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, RatePrompt],
   template: `
     <a class="skip" href="#main">Skip to content</a>
-    <header class="nav">
-      <nav class="nav-inner" aria-label="Main">
-        <a class="brand" routerLink="/" aria-label="Research Buddy home">
-          <img src="favicon.svg" width="22" height="22" alt="" />
-          <span>Research Buddy</span>
+
+    <nav class="rail" data-nav aria-label="Main">
+      <a class="brand" routerLink="/" aria-label="Research Buddy home" title="Research Buddy">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor" d="M12 2l2.2 7.3L21.5 12l-7.3 2.2L12 21.5l-2.2-7.3L2.5 12l7.3-2.7z" />
+        </svg>
+      </a>
+      <div class="rail-links">
+        @for (item of nav; track item.path) {
+          <a
+            class="rail-link"
+            [routerLink]="item.path"
+            routerLinkActive="on"
+            [routerLinkActiveOptions]="{ exact: !!item.exact }"
+            [attr.aria-label]="item.label"
+            [attr.data-label]="item.label"
+          >
+            <app-icon [name]="item.icon" [size]="20" />
+          </a>
+        }
+      </div>
+      <div class="rail-foot">
+        <a class="rail-link" routerLink="/support" routerLinkActive="on" aria-label="Support" data-label="Support">
+          <app-icon name="heart" [size]="19" />
         </a>
-        <div class="links">
-          <a routerLink="/skills" routerLinkActive="on">Skills</a>
-          <a routerLink="/workspace" routerLinkActive="on">Workspace</a>
-          <a routerLink="/connectors" routerLinkActive="on">Connectors</a>
-          <a routerLink="/support" routerLinkActive="on">Support</a>
-          <a routerLink="/settings" routerLinkActive="on">Settings</a>
-        </div>
-        <button
-          class="icon-btn theme"
-          type="button"
-          (click)="cycleTheme()"
-          [attr.aria-label]="themeLabel()"
-          [title]="themeLabel()"
-        >
-          <app-icon [name]="themeIcon()" [size]="17" />
+        <button class="rail-link" type="button" (click)="cycleTheme()" [attr.aria-label]="themeLabel()" [attr.data-label]="themeShort()">
+          <app-icon [name]="themeIcon()" [size]="19" />
         </button>
-      </nav>
+      </div>
+    </nav>
+
+    <header class="topbar" data-nav>
+      <button class="icon-btn" type="button" (click)="menuOpen.set(!menuOpen())" [attr.aria-expanded]="menuOpen()" aria-label="Menu">
+        <app-icon [name]="menuOpen() ? 'close' : 'menu'" [size]="20" />
+      </button>
+      <a class="top-brand" routerLink="/">
+        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor" d="M12 2l2.2 7.3L21.5 12l-7.3 2.2L12 21.5l-2.2-7.3L2.5 12l7.3-2.7z" />
+        </svg>
+        Research Buddy
+      </a>
+      <button class="icon-btn" type="button" (click)="cycleTheme()" [attr.aria-label]="themeLabel()">
+        <app-icon [name]="themeIcon()" [size]="19" />
+      </button>
+      @if (menuOpen()) {
+        <div class="drawer">
+          @for (item of nav; track item.path) {
+            <a [routerLink]="item.path" routerLinkActive="on" [routerLinkActiveOptions]="{ exact: !!item.exact }">
+              <app-icon [name]="item.icon" [size]="18" />
+              {{ item.label }}
+            </a>
+          }
+          <a routerLink="/support" routerLinkActive="on"><app-icon name="heart" [size]="18" /> Support</a>
+        </div>
+      }
     </header>
+    @if (menuOpen()) {
+      <button class="scrim" type="button" aria-label="Close menu" (click)="menuOpen.set(false)"></button>
+    }
+
     <main id="main" tabindex="-1">
       <router-outlet />
     </main>
@@ -45,9 +97,10 @@ const THEME_ICON: Record<Theme, string> = { system: 'auto', light: 'sun', dark: 
   `,
   styles: `
     :host {
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: var(--rail-width) minmax(0, 1fr);
       min-height: 100dvh;
+      --chrome-top: 0px;
     }
 
     .skip {
@@ -65,90 +118,206 @@ const THEME_ICON: Record<Theme, string> = { system: 'auto', light: 'sun', dark: 
       }
     }
 
-    .nav {
+    .rail {
       position: sticky;
       top: 0;
       z-index: 50;
-      height: var(--nav-height);
-      background: var(--nav-bg);
-      backdrop-filter: saturate(180%) blur(20px);
-      -webkit-backdrop-filter: saturate(180%) blur(20px);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .nav-inner {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 8px;
-      height: 100%;
-      max-width: calc(var(--page-width) + 2 * var(--gutter));
-      margin-inline: auto;
-      padding-inline: var(--gutter);
+      gap: 18px;
+      height: 100dvh;
+      padding: 14px 0 16px;
+      border-right: 1px solid var(--border);
+      background: var(--bg-alt);
     }
 
     .brand {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin-right: auto;
-      color: var(--text);
-      font-size: 15px;
-      font-weight: 600;
-      letter-spacing: -0.015em;
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: var(--accent);
+      color: var(--on-accent);
+      box-shadow: 0 6px 16px -6px var(--accent);
+      transition: transform 0.2s var(--ease);
 
       &:hover {
+        transform: rotate(-8deg) scale(1.04);
+      }
+    }
+
+    .rail-links,
+    .rail-foot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .rail-foot {
+      margin-top: auto;
+    }
+
+    .rail-link {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--text-3);
+      transition: background 0.15s var(--ease), color 0.15s var(--ease);
+
+      &:hover {
+        background: var(--bg-inset);
+        color: var(--text);
         text-decoration: none;
       }
 
-      img {
-        border-radius: 6px;
+      &.on {
+        background: var(--accent-tint);
+        color: var(--accent);
+
+        &::before {
+          content: '';
+          position: absolute;
+          left: -11px;
+          top: 9px;
+          bottom: 9px;
+          width: 3px;
+          border-radius: 0 3px 3px 0;
+          background: var(--accent);
+        }
+      }
+
+      // Tooltip
+      &::after {
+        content: attr(data-label);
+        position: absolute;
+        left: calc(100% + 10px);
+        top: 50%;
+        padding: 5px 9px;
+        border-radius: 7px;
+        background: var(--text);
+        color: var(--bg);
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transform: translate(-4px, -50%);
+        transition: opacity 0.15s var(--ease), transform 0.15s var(--ease);
+      }
+
+      &:hover::after,
+      &:focus-visible::after {
+        opacity: 1;
+        transform: translate(0, -50%);
       }
     }
 
-    .links {
-      display: flex;
-      gap: clamp(2px, 2vw, 16px);
-      max-width: 70vw;
-      overflow-x: auto;
-
-      a {
-        padding: 6px 8px;
-        border-radius: var(--radius-s);
-        color: var(--text);
-        font-size: 13px;
-        letter-spacing: -0.008em;
-        opacity: 0.8;
-        transition: opacity 0.2s var(--ease);
-
-        &:hover,
-        &.on {
-          opacity: 1;
-          text-decoration: none;
-        }
-
-        &.on {
-          font-weight: 600;
-        }
-      }
-    }
-
-    .theme {
-      width: 32px;
-      height: 32px;
-      margin-right: -6px;
+    .topbar,
+    .scrim {
+      display: none;
     }
 
     main {
-      flex: 1;
       display: flex;
       flex-direction: column;
+      min-width: 0;
       min-height: 0;
       outline: none;
     }
 
-    @media (max-width: 480px) {
-      .brand span {
+    @media (max-width: 767px) {
+      :host {
+        grid-template-columns: minmax(0, 1fr);
+        --chrome-top: var(--nav-height);
+      }
+
+      .rail {
         display: none;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 60;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: var(--nav-height);
+        padding: 0 10px;
+        border-bottom: 1px solid var(--border);
+        background: var(--nav-bg);
+        backdrop-filter: saturate(160%) blur(16px);
+        -webkit-backdrop-filter: saturate(160%) blur(16px);
+      }
+
+      .top-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text);
+        font-family: var(--font-display);
+        font-size: 16px;
+        font-weight: 700;
+
+        svg {
+          color: var(--accent);
+        }
+
+        &:hover {
+          text-decoration: none;
+        }
+      }
+
+      .drawer {
+        position: absolute;
+        top: calc(100% + 1px);
+        left: 0;
+        right: 0;
+        display: grid;
+        gap: 2px;
+        padding: 10px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-elevated);
+        box-shadow: var(--shadow-raised);
+
+        a {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 14px;
+          border-radius: var(--radius-m);
+          color: var(--text);
+          font-weight: 500;
+
+          &:hover {
+            background: var(--bg-inset);
+            text-decoration: none;
+          }
+
+          &.on {
+            background: var(--accent-tint);
+            color: var(--accent);
+          }
+        }
+      }
+
+      .scrim {
+        display: block;
+        position: fixed;
+        inset: var(--nav-height) 0 0;
+        z-index: 55;
+        border: 0;
+        background: rgba(13, 15, 19, 0.3);
       }
     }
   `,
@@ -158,19 +327,25 @@ export class App {
   private readonly settings = inject(SettingsStore);
   private readonly document = inject(DOCUMENT);
 
+  protected readonly nav = NAV;
+  protected readonly menuOpen = signal(false);
+
   constructor() {
     const open = (event: Event) => this.openInNewTab(event as MouseEvent);
     this.document.addEventListener('click', open, true);
     inject(DestroyRef).onDestroy(() => this.document.removeEventListener('click', open, true));
+    inject(Router)
+      .events.pipe(filter((e) => e instanceof NavigationEnd))
+      .subscribe(() => this.menuOpen.set(false));
   }
 
-  /** Every link outside the top menu opens in a new tab. The menu stays in this tab. */
+  /** Every link outside the main navigation opens in a new tab. The navigation stays in this tab. */
   private openInNewTab(event: MouseEvent): void {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       return;
     }
     const anchor = (event.target as HTMLElement | null)?.closest('a');
-    if (!anchor || anchor.classList.contains('skip') || anchor.closest('header.nav')) return;
+    if (!anchor || anchor.classList.contains('skip') || anchor.closest('[data-nav]')) return;
     const href = anchor.getAttribute('href') ?? '';
     if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('javascript:')) return;
     event.preventDefault();
@@ -179,10 +354,11 @@ export class App {
   }
 
   protected readonly themeIcon = computed(() => THEME_ICON[this.settings.theme()]);
-  protected readonly themeLabel = computed(() => {
+  protected readonly themeShort = computed(() => {
     const theme = this.settings.theme();
-    return `Appearance: ${theme === 'system' ? 'automatic' : theme}. Click to change.`;
+    return `Appearance: ${theme === 'system' ? 'auto' : theme}`;
   });
+  protected readonly themeLabel = computed(() => `${this.themeShort()}. Click to change.`);
 
   protected cycleTheme(): void {
     this.settings.setTheme(NEXT_THEME[this.settings.theme()]);

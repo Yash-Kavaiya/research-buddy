@@ -1,32 +1,43 @@
-.head {
-  margin-bottom: 32px;
-
-  h1 {
-    font-size: 40px;
-    margin-bottom: 8px;
-  }
-}
-
 h2 {
-  margin: 28px 0 10px;
-  font-size: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 40px 0 12px;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .optional {
-  color: var(--text-3);
-  font-size: 13px;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-inset);
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
   font-weight: 500;
 }
 
 .note {
-  margin-bottom: 10px;
+  margin: -4px 0 12px;
   font-size: 14px;
+}
+
+#key,
+#model,
+#s2,
+#ncbi {
+  font-family: var(--font-mono);
+  font-size: 13px;
 }
 
 .key-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+
+  input {
+    flex: 1;
+  }
 }
 
 .row-actions {
@@ -38,42 +49,87 @@ h2 {
 }
 
 .status {
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 500;
+
+  &::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+  }
 
   &.ok {
+    background: var(--success-soft);
     color: var(--success);
   }
+
   &.bad {
+    background: var(--danger-soft);
     color: var(--danger);
   }
 }
 
-.theme .inset-row {
-  justify-content: flex-start;
+// Appearance: a segmented row of three options.
+.inset.theme {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 6px;
 
-  span:first-of-type {
-    flex: 1;
-  }
+  .inset-row {
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 8px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-m);
+    color: var(--text-2);
 
-  &.on {
-    font-weight: 600;
+    & + .inset-row {
+      border-top: 1px solid transparent;
+    }
+
+    span {
+      flex: none;
+    }
+
+    app-icon:last-child:not(:first-child) {
+      display: none;
+    }
+
+    &.on {
+      border-color: var(--accent-line);
+      background: var(--accent-tint);
+      color: var(--accent);
+    }
   }
 }
 
-.inset-row span {
+.inset-row > span:first-child {
   display: flex;
   flex-direction: column;
   gap: 2px;
   flex: 1;
 
   em {
-    font-style: normal;
-    font-size: 13px;
     color: var(--text-3);
+    font-size: 13px;
+    font-style: normal;
     font-weight: 400;
   }
 }
 
 .jump {
-  margin-top: 36px;
+  margin-top: 40px;
+  padding: 18px 20px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-l);
+  background: var(--accent-tint);
+  color: var(--text);
 }

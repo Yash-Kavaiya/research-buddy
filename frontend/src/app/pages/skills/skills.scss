@@ -1,107 +1,173 @@
-.head {
-  max-width: 36em;
-  margin-bottom: 28px;
-
-  h1 {
-    font-size: 40px;
-    margin-bottom: 8px;
-  }
-}
-
 .toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-bottom: 22px;
+  position: sticky;
+  top: var(--chrome-top, 0px);
+  z-index: 5;
+  display: grid;
+  gap: 12px;
+  margin: 0 calc(-1 * var(--gutter)) 22px;
+  padding: 12px var(--gutter);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .search {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
+  gap: 10px;
+  height: 48px;
+  padding: 0 16px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: var(--bg-inset);
-  color: var(--text-2);
+  border-radius: var(--radius-l);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-card);
+  color: var(--text-3);
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+
+  &:focus-within {
+    border-color: var(--accent-line);
+    box-shadow: var(--shadow-card), 0 0 0 4px var(--accent-soft);
+  }
 
   input {
     flex: 1;
+    min-width: 0;
     border: 0;
+    outline: 0;
     background: transparent;
-    outline: none;
     color: var(--text);
+    font-size: 15px;
+  }
+
+  .found {
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    background: var(--bg-inset);
+    color: var(--text-2);
+    font-size: 11px;
   }
 }
 
 .filters {
   display: flex;
   gap: 6px;
-  flex-wrap: wrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 
   button {
-    padding: 6px 10px;
-    border: 0;
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    gap: 7px;
+    height: 32px;
+    padding: 0 13px;
+    border: 1px solid var(--border);
     border-radius: var(--radius-pill);
-    background: transparent;
+    background: var(--bg-elevated);
     color: var(--text-2);
     font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
 
-    &.on,
     &:hover {
-      background: var(--bg-inset);
+      border-color: var(--border-strong);
       color: var(--text);
     }
+
+    &.on {
+      border-color: var(--text);
+      background: var(--text);
+      color: var(--bg);
+    }
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
   }
 }
 
 .list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 12px;
 }
 
 .item {
   display: grid;
-  grid-template-columns: 10px 1fr 16px;
-  gap: 14px;
-  align-items: start;
-  padding: 16px 18px;
+  align-content: start;
+  gap: 8px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  background: var(--bg-elevated);
   color: var(--text);
+  transition: border-color 0.15s var(--ease), box-shadow 0.2s var(--ease), transform 0.2s var(--ease);
 
   &:hover {
+    border-color: var(--accent-line);
+    box-shadow: var(--shadow-card);
     text-decoration: none;
+    transform: translateY(-2px);
+
+    strong {
+      color: var(--accent);
+    }
   }
 
-  .dot {
-    width: 10px;
-    height: 10px;
-    margin-top: 6px;
-    border-radius: 50%;
-  }
-
-  strong {
-    display: block;
-    font-size: 16px;
-    letter-spacing: -0.015em;
-  }
-
-  .desc {
-    display: block;
-    margin-top: 4px;
-    color: var(--text-2);
-    font-size: 14px;
-  }
-
-  .meta {
-    display: block;
-    margin-top: 6px;
+  .top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     color: var(--text-3);
     font-size: 12px;
   }
 
-  app-icon {
-    color: var(--text-3);
-    margin-top: 4px;
+  .stage-tag {
+    font-weight: 600;
   }
+
+  .stage-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .script {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    background: var(--accent-tint);
+    color: var(--accent);
+    font-size: 10.5px;
+  }
+
+  strong {
+    font-size: 14px;
+    font-weight: 600;
+    transition: color 0.15s var(--ease);
+  }
+
+  .desc {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--text-2);
+    font-size: 13.5px;
+    line-height: 1.5;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+  }
+}
+
+.none {
+  padding: 32px 0;
 }

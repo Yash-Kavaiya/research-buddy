@@ -27,7 +27,7 @@ import { Footer } from '../../shared/footer';
               <div class="field">
                 <div class="title">
                   <strong>{{ c.name }}</strong>
-                  <span class="pill">{{ status(c) }}</span>
+                  <span class="pill" [class.live]="status(c) !== 'Off'">{{ status(c) }}</span>
                 </div>
                 <p>{{ c.detail }}</p>
                 @if (c.kind === 'key' && c.id === 's2') {
@@ -71,13 +71,6 @@ import { Footer } from '../../shared/footer';
     </div>
   `,
   styles: `
-    .head {
-      margin-bottom: 28px;
-      h1 {
-        font-size: 40px;
-        margin-bottom: 8px;
-      }
-    }
     .stack {
       display: flex;
       flex-direction: column;
@@ -93,14 +86,19 @@ import { Footer } from '../../shared/footer';
       margin: 6px 0 0;
       font-size: 14px;
     }
+    .title strong {
+      font-family: var(--font-display);
+      font-size: 16px;
+    }
+    .pill.live {
+      border-color: var(--accent-line);
+      background: var(--accent-tint);
+      color: var(--accent);
+    }
     input {
       margin-top: 10px;
-      width: 100%;
-      padding: 8px 0;
-      border: 0;
-      border-bottom: 1px solid var(--border);
-      background: transparent;
-      outline: none;
+      font-family: var(--font-mono);
+      font-size: 13px;
     }
     .hint {
       display: inline-block;

@@ -1,30 +1,63 @@
-<div class="page">
+<div class="home">
   <section class="hero">
-    <span class="eyebrow">Research, from first question to defence</span>
-    <h1>A research assistant that works through real skills, not a chat that guesses.</h1>
+    <span class="eyebrow">Research assistant · {{ catalog()?.skills?.length || 59 }} skills</span>
+    <h1>Ask a research question.<br /><span>Get a cited, computed answer.</span></h1>
     <p class="lede">
-      Research Buddy loads the research-scholar skill library — literature search, study design, writing,
-      citations, submission — and runs the parts that must be computed. You bring your own model key. Nothing
-      is stored on the server.
+      Research Buddy works through real research skills: literature search, study design, statistics, writing,
+      citation checks. It runs their scripts for anything that has to be retrieved or calculated, and shows every
+      source it used.
     </p>
-    <div class="actions">
-      <a class="btn" routerLink="/workspace">Open workspace</a>
-      <a class="btn btn-ghost" routerLink="/skills">Browse skills</a>
+
+    <form class="ask" (submit)="$event.preventDefault(); ask()">
+      <textarea
+        rows="2"
+        [value]="question()"
+        (input)="question.set($any($event.target).value)"
+        (keydown)="onKey($event)"
+        placeholder="e.g. What do recent papers say about retrieval-augmented generation for clinical notes?"
+        aria-label="Research question"
+      ></textarea>
+      <div class="ask-row">
+        <span class="providers">
+          <i class="rose-dot"></i>
+          Works with your own Gemini, OpenAI, Anthropic, Groq, OpenRouter or NVIDIA key
+        </span>
+        <button class="go" type="submit" [disabled]="!question().trim()" aria-label="Ask">
+          <app-icon name="arrow" [size]="18" />
+        </button>
+      </div>
+    </form>
+
+    <div class="related">
+      <div class="related-label"><app-icon name="layers" [size]="15" /> Try asking</div>
+      @for (s of starters; track s) {
+        <button type="button" class="related-row" (click)="ask(s)">
+          <app-icon name="plus" [size]="16" class="plus" />
+          <span>{{ s }}</span>
+          <app-icon name="chevron" [size]="15" class="chev" />
+        </button>
+      }
     </div>
   </section>
 
-  <section class="strip">
-    <article>
-      <h2>Bring your own key</h2>
-      <p>Gemini, OpenAI, Anthropic, Groq, OpenRouter, or NVIDIA. The key is sent only as a request header.</p>
+  <section class="how">
+    <article class="card">
+      <span class="step mono">01</span>
+      <app-icon name="library" [size]="22" />
+      <h2>Picks the right skill</h2>
+      <p>Your question is routed to one of {{ catalog()?.skills?.length || 59 }} skills that cover the research lifecycle, from choosing a problem to the defence.</p>
     </article>
-    <article>
-      <h2>Fifty-nine skills</h2>
-      <p>The full research lifecycle, from finding a problem to defending the thesis, plus orchestrators.</p>
+    <article class="card">
+      <span class="step mono">02</span>
+      <app-icon name="terminal" [size]="22" />
+      <h2>Runs the scripts</h2>
+      <p>Paper search, citation checks, power analysis and tests run as Python against arXiv, Semantic Scholar, OpenAlex, PubMed and Crossref.</p>
     </article>
-    <article>
-      <h2>Scripts, not memory</h2>
-      <p>Paper search, citation checks, statistics, and tables run as Python — they are not invented.</p>
+    <article class="card">
+      <span class="step mono">03</span>
+      <app-icon name="globe" [size]="22" />
+      <h2>Cites what it found</h2>
+      <p>Answers carry numbered citations that trace to source cards. Keys stay in your browser; the server stores nothing.</p>
     </article>
   </section>
 
@@ -32,14 +65,14 @@
     <section class="stages">
       <header>
         <span class="eyebrow">Lifecycle</span>
-        <h2>Twelve stages. Pick a place to start.</h2>
+        <h2>Twelve stages. Start wherever you are.</h2>
       </header>
       <div class="grid">
         @for (stage of cat.stages; track stage.id) {
-          <a class="stage card" [routerLink]="'/skills'" [queryParams]="{ stage: stage.id }">
-            <i class="dot" [style.background]="'var(--stage-' + stage.number + ')'"></i>
+          <a class="stage" [routerLink]="'/skills'" [queryParams]="{ stage: stage.id }">
+            <span class="num mono" [style.color]="'var(--stage-' + stage.number + ')'">{{ pad(stage.number) }}</span>
             <strong>{{ stage.name }}</strong>
-            <span>{{ countFor(cat.skills, stage.id) }} skills</span>
+            <span class="count mono">{{ countFor(cat.skills, stage.id) }} skills</span>
           </a>
         }
       </div>

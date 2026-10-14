@@ -36,7 +36,7 @@ import { Icon } from '../../shared/icon';
               (change)="onProvider($any($event.target).value)"
             >
               @for (p of list; track p.id) {
-                <option [value]="p.id">{{ p.name }}</option>
+                <option [value]="p.id" [selected]="p.id === settings.provider()">{{ p.name }}</option>
               }
             </select>
           </div>
@@ -163,7 +163,7 @@ import { Icon } from '../../shared/icon';
         <p class="status ok">{{ cleared() }}</p>
       }
 
-      <p class="note jump">Ready? <a routerLink="/workspace">Open the workspace</a>.</p>
+      <p class="note jump">All set? <a routerLink="/workspace">Start researching</a> with {{ settings.model() || "your model" }}.</p>
       <app-footer />
     </div>
   `,

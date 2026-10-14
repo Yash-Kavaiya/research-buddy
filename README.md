@@ -1,6 +1,6 @@
 # Research Buddy
 
-A production research assistant: an Apple-style Angular app in front of FastAPI and [Google ADK](https://google.github.io/adk-docs/). It loads the [research-scholar agent skills](https://github.com/Yash-Kavaiya/research-scholar-agent-skills) and runs their scripts. You bring your own LLM key. The server never stores it.
+A production research assistant: an Angular answer-engine app (cited answers, a Sources rail, rose-accent design) in front of FastAPI and [Google ADK](https://google.github.io/adk-docs/). It loads the [research-scholar agent skills](https://github.com/Yash-Kavaiya/research-scholar-agent-skills) and runs their scripts. You bring your own LLM key. The server never stores it.
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yash-kavaiya/research-buddy)
 

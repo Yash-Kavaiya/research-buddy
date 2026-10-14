@@ -1,90 +1,104 @@
-<div class="workspace" [class.nav-open]="sidebarOpen()">
-  <aside class="sidebar">
-    <div class="side-head">
-      <button class="btn btn-ghost new" type="button" (click)="newChat()">
-        <app-icon name="plus" [size]="15" />
-        New chat
+<div class="ws" [class.history-closed]="!historyOpen()" [class.history-drawer]="historyDrawer()" [class.sources-drawer]="sourcesDrawer()">
+  <!-- History -------------------------------------------------------------->
+  <aside class="history" aria-label="Conversations">
+    <div class="history-head">
+      <button class="new-chat" type="button" (click)="newChat()">
+        <app-icon name="plus" [size]="16" />
+        New research
       </button>
-      <button class="icon-btn close-side" type="button" (click)="sidebarOpen.set(false)" aria-label="Close sidebar">
-        <app-icon name="close" [size]="16" />
+      <button class="icon-btn" type="button" (click)="closeHistory()" aria-label="Hide conversations">
+        <app-icon name="panel" [size]="17" />
       </button>
     </div>
-    <div class="projects">
-      @if (namingProject()) {
-        <form class="name-project" (submit)="$event.preventDefault(); addProject()">
-          <input
-            type="text"
-            placeholder="Project name"
-            [value]="projectName()"
-            (input)="projectName.set($any($event.target).value)"
-            maxlength="80"
-          />
-          <button class="btn" type="submit">Add</button>
-        </form>
-      } @else {
-        <button class="text-btn" type="button" (click)="namingProject.set(true)">
-          <app-icon name="folder" [size]="14" />
-          New project
-        </button>
-      }
-      @for (p of projects.projects(); track p.id) {
-        <section>
-          <header>
-            <span>{{ p.name }}</span>
-            <button type="button" class="icon-btn" (click)="newChat(p.id)" aria-label="New chat in project">
-              <app-icon name="plus" [size]="13" />
-            </button>
-            <button type="button" class="icon-btn" (click)="deleteProject(p.id)" aria-label="Delete project">
-              <app-icon name="trash" [size]="13" />
-            </button>
-          </header>
-          <ul class="chats">
-            @for (c of chatsIn(p.id); track c.id) {
-              <li>
-                <button type="button" class="chat-item" [class.on]="c.id === chat.activeId()" (click)="selectChat(c.id)">
-                  <span>{{ c.title }}</span>
-                </button>
-                <button class="icon-btn del" type="button" (click)="chat.remove(c.id)" aria-label="Delete chat">
-                  <app-icon name="trash" [size]="14" />
-                </button>
-              </li>
-            }
-          </ul>
-        </section>
-      }
+
+    <div class="history-scroll">
+      <div class="group">
+        <div class="group-label">
+          <span>Projects</span>
+          <button class="icon-btn tiny" type="button" (click)="namingProject.set(!namingProject())" aria-label="New project">
+            <app-icon name="plus" [size]="14" />
+          </button>
+        </div>
+        @if (namingProject()) {
+          <form class="name-project" (submit)="$event.preventDefault(); addProject()">
+            <input
+              type="text"
+              placeholder="Project name"
+              [value]="projectName()"
+              (input)="projectName.set($any($event.target).value)"
+              maxlength="80"
+              autofocus
+            />
+            <button class="btn" type="submit">Add</button>
+          </form>
+        }
+        @for (p of projects.projects(); track p.id) {
+          <section class="project">
+            <header>
+              <app-icon name="folder" [size]="15" />
+              <span>{{ p.name }}</span>
+              <button type="button" class="icon-btn tiny" (click)="newChat(p.id)" aria-label="New chat in project">
+                <app-icon name="plus" [size]="13" />
+              </button>
+              <button type="button" class="icon-btn tiny" (click)="deleteProject(p.id)" aria-label="Delete project">
+                <app-icon name="trash" [size]="13" />
+              </button>
+            </header>
+            <ul class="chats">
+              @for (c of chatsIn(p.id); track c.id) {
+                <li [class.on]="c.id === chat.activeId()">
+                  <button type="button" class="chat-item" (click)="selectChat(c.id)">{{ c.title }}</button>
+                  <button class="icon-btn tiny del" type="button" (click)="chat.remove(c.id)" aria-label="Delete chat">
+                    <app-icon name="trash" [size]="13" />
+                  </button>
+                </li>
+              }
+            </ul>
+          </section>
+        } @empty {
+          @if (!namingProject()) {
+            <p class="group-empty">Group related chats into a project.</p>
+          }
+        }
+      </div>
+
+      <div class="group">
+        <div class="group-label"><span>Recent</span></div>
+        <ul class="chats">
+          @for (c of chatsIn(null); track c.id) {
+            <li [class.on]="c.id === chat.activeId()">
+              <button type="button" class="chat-item" (click)="selectChat(c.id)">
+                <span>{{ c.title }}</span>
+                <time class="mono">{{ c.updatedAt | date: 'MMM d' }}</time>
+              </button>
+              <button class="icon-btn tiny del" type="button" (click)="chat.remove(c.id)" aria-label="Delete chat">
+                <app-icon name="trash" [size]="13" />
+              </button>
+            </li>
+          }
+        </ul>
+      </div>
     </div>
-    <p class="side-label">Chats</p>
-    <ul class="chats">
-      @for (c of chatsIn(null); track c.id) {
-        <li>
-          <button type="button" class="chat-item" [class.on]="c.id === chat.activeId()" (click)="selectChat(c.id)">
-            <span>{{ c.title }}</span>
-            <time>{{ c.updatedAt | date: 'MMM d' }}</time>
-          </button>
-          <button class="icon-btn del" type="button" (click)="chat.remove(c.id)" aria-label="Delete chat">
-            <app-icon name="trash" [size]="14" />
-          </button>
-        </li>
-      }
-    </ul>
   </aside>
 
-  @if (sidebarOpen()) {
-    <button class="scrim" type="button" (click)="sidebarOpen.set(false)" aria-label="Close sidebar"></button>
+  @if (historyDrawer() || sourcesDrawer()) {
+    <button class="scrim" type="button" (click)="closeDrawers()" aria-label="Close panel"></button>
   }
 
-  <section class="pane">
-    <header class="pane-head">
-      <button class="icon-btn menu" type="button" (click)="sidebarOpen.set(true)" aria-label="Open chats">
-        <app-icon name="menu" [size]="18" />
-      </button>
+  <!-- Answer column --------------------------------------------------------->
+  <section class="center">
+    <header class="center-head">
+      @if (!historyOpen() || narrow()) {
+        <button class="icon-btn" type="button" (click)="openHistory()" aria-label="Show conversations">
+          <app-icon name="history" [size]="18" />
+        </button>
+      }
+      <span class="head-title">{{ chat.active()?.title || 'New research' }}</span>
       @if (chat.active(); as head) {
         <label class="project-pick">
+          <app-icon name="folder" [size]="14" />
           <span class="sr">Project</span>
-          <select
-            [value]="head.projectId || ''"
-            (change)="chat.setProject(head.id, $any($event.target).value || null)"
-          >
+          <select [value]="head.projectId || ''" (change)="chat.setProject(head.id, $any($event.target).value || null)">
             <option value="" [selected]="!head.projectId">No project</option>
             @for (p of projects.projects(); track p.id) {
               <option [value]="p.id" [selected]="head.projectId === p.id">{{ p.name }}</option>
@@ -92,182 +106,365 @@
           </select>
         </label>
       }
-      <div class="skill-pin">
-        <button type="button" class="pin" (click)="pinnedOpen.set(!pinnedOpen())">
-          {{ chat.active()?.skill || 'Any skill' }}
-          <app-icon name="chevron" [size]="14" />
-        </button>
-        @if (pinnedOpen() && catalog(); as cat) {
-          <div class="menu-list" role="listbox">
-            <button type="button" (click)="setSkill('')">Any skill</button>
-            @for (s of cat.skills; track s.name) {
-              <button type="button" (click)="setSkill(s.name)">{{ s.name }}</button>
-            }
-          </div>
+      <button class="icon-btn sources-toggle" type="button" (click)="sourcesDrawer.set(true)" aria-label="Show sources">
+        <app-icon name="globe" [size]="18" />
+        @if (focusSources().length) {
+          <span class="badge mono">{{ focusSources().length }}</span>
         }
-      </div>
+      </button>
     </header>
 
     <div class="scroller" #scroller (scroll)="onScroll($event)">
-      @if (!settings.ready()) {
-        <div class="banner">
-          <span>Add a provider, model, and API key in Settings to start.</span>
-          <a class="btn" routerLink="/settings">Settings</a>
-        </div>
-      }
-
-      @if (chat.active(); as convo) {
-        @if (!convo.messages.length) {
-          <div class="empty">
-            <h1>What are you working on?</h1>
-            <p>Ask in your own words. The assistant will load a research skill and, when needed, run its scripts.</p>
-            <div class="starters">
-              @for (s of starters; track s) {
-                <button type="button" class="card starter" (click)="useStarter(s)">{{ s }}</button>
-              }
-            </div>
+      <div class="column">
+        @if (!settings.ready()) {
+          <div class="banner">
+            <span>Add a provider, model, and API key to start researching.</span>
+            <button class="btn" type="button" (click)="goSettings()">Open Settings</button>
           </div>
-        } @else {
-          <ol class="messages">
-            @for (m of convo.messages; track m.id) {
-              <li class="msg" [class.user]="m.role === 'user'">
-                @if (m.role === 'user') {
-                  <div class="bubble">
-                    @for (b of m.blocks; track $index) {
-                      @if (b.type === 'text') {
-                        <pre class="plain">{{ b.text }}</pre>
-                      }
-                    }
-                    @if (m.attachments?.length) {
-                      <div class="chips">
-                        @for (n of m.attachments; track n) {
-                          <span class="pill">{{ n }}</span>
-                        }
-                      </div>
-                    }
-                  </div>
-                } @else {
-                  <div class="answer">
-                    @for (b of m.blocks; track $index) {
-                      @if (b.type === 'text') {
-                        @if (!raw()[m.id]) {
-                          <app-markdown [source]="b.text" />
-                        }
-                      } @else {
-                        <button type="button" class="activity" [class.err]="b.status === 'error'" (click)="toggleActivity(b.id)">
-                          <span class="spin" [class.on]="b.status === 'running'"></span>
-                          <span>{{ b.label }}</span>
-                          @if (b.detail) {
-                            <em>{{ b.detail }}</em>
-                          }
-                        </button>
-                        @if (expanded()[b.id] && b.preview) {
-                          <pre class="preview">{{ b.preview }}</pre>
-                        }
-                      }
-                    }
-                    @if (m.pending && !m.blocks.length) {
-                      <span class="spin on"></span>
-                    }
-                    @if (m.error) {
-                      <p class="err-text">
-                        {{ m.error }}
-                        @if (needsSettings(m.error)) {
-                          <a routerLink="/settings">Open Settings</a>
-                        }
-                      </p>
-                    }
-                    @if (raw()[m.id]) {
-                      <pre class="preview">{{ messagePlain(m.id) }}</pre>
-                    }
-                    @if (!m.pending && (m.blocks.length || m.error)) {
-                      <div class="msg-actions">
-                        <button type="button" (click)="copy(m.id, messagePlain(m.id))">
-                          {{ copied() === 'copy:' + m.id ? 'Copied' : 'Copy' }}
-                        </button>
-                        <button type="button" (click)="toggleMarkdown(m.id)">
-                          {{ raw()[m.id] ? 'Preview' : 'Markdown' }}
-                        </button>
-                        <button type="button" (click)="share(m)">Share</button>
-                        <button type="button" (click)="branch(m.id)">Branch</button>
-                        <button type="button" [class.on]="m.feedback === 'up'" (click)="rate(m.id, 'up')" aria-label="Thumbs up">
-                          <app-icon name="up" [size]="14" />
-                        </button>
-                        <button type="button" [class.on]="m.feedback === 'down'" (click)="rate(m.id, 'down')" aria-label="Thumbs down">
-                          <app-icon name="down" [size]="14" />
-                        </button>
-                      </div>
-                    }
-                  </div>
-                }
-              </li>
-            }
-          </ol>
         }
-      }
-    </div>
 
-    <form class="composer" (submit)="$event.preventDefault(); submit()">
-      @if (chat.activeAttachments().length || attachError()) {
-        <div class="chips">
-          @for (f of chat.activeAttachments(); track f.name) {
-            <span class="pill">
-              {{ f.name }}
-              <button type="button" class="icon-btn" (click)="chat.detach(f.name)" aria-label="Remove file">
-                <app-icon name="close" [size]="12" />
-              </button>
-            </span>
+        @if (chat.active(); as convo) {
+          @if (!convo.messages.length) {
+            <div class="empty">
+              <span class="eyebrow">Research assistant</span>
+              <h1>What are you researching?</h1>
+              <p class="lede">
+                Ask in your own words. The assistant picks one of {{ catalog()?.skills?.length || 59 }} research skills,
+                runs its scripts for anything that must be retrieved or computed, and cites what it finds.
+              </p>
+              <div class="related">
+                <div class="related-label"><app-icon name="layers" [size]="15" /> Try asking</div>
+                @for (s of starters; track s) {
+                  <button type="button" class="related-row" (click)="useStarter(s)">
+                    <app-icon name="plus" [size]="16" class="plus" />
+                    <span>{{ s }}</span>
+                    <app-icon name="chevron" [size]="15" class="chev" />
+                  </button>
+                }
+              </div>
+            </div>
+          } @else {
+            @for (m of convo.messages; track m.id; let i = $index) {
+              @if (m.role === 'user') {
+                <div class="question" [class.first]="i === 0">
+                  <h2 [class.long]="messagePlain(m.id).length > 140">{{ messagePlain(m.id) }}</h2>
+                  @if (m.attachments?.length) {
+                    <div class="files">
+                      @for (n of m.attachments; track n) {
+                        <span class="pill mono"><app-icon name="attach" [size]="12" />{{ n }}</span>
+                      }
+                    </div>
+                  }
+                </div>
+              } @else {
+                <article class="answer" [class.focused]="focusId() === m.id" (click)="focusId.set(m.id)">
+                  <div class="tabs" role="tablist">
+                    <button type="button" role="tab" [class.on]="tabOf(m.id) === 'answer'" (click)="setTab(m.id, 'answer')">
+                      <app-icon name="spark" [size]="15" /> Answer
+                    </button>
+                    <button type="button" role="tab" [class.on]="tabOf(m.id) === 'sources'" (click)="setTab(m.id, 'sources')">
+                      <app-icon name="globe" [size]="15" /> Sources
+                      @if (sourcesOf(m.id).length) {
+                        <span class="count mono">{{ sourcesOf(m.id).length }}</span>
+                      }
+                    </button>
+                    <button type="button" role="tab" [class.on]="tabOf(m.id) === 'steps'" (click)="setTab(m.id, 'steps')">
+                      <app-icon name="terminal" [size]="15" /> Steps
+                      @if (stepsOf(m).length) {
+                        <span class="count mono">{{ stepsOf(m).length }}</span>
+                      }
+                    </button>
+                  </div>
+
+                  @switch (tabOf(m.id)) {
+                    @case ('sources') {
+                      <div class="source-list">
+                        @for (s of sourcesOf(m.id); track s.url) {
+                          <a class="source-card" [href]="s.url" target="_blank" rel="noopener noreferrer">
+                            <span class="fav">{{ s.domain.charAt(0) }}</span>
+                            <span class="s-body">
+                              <strong>{{ s.title }}</strong>
+                              <span class="mono dom">{{ s.domain }}</span>
+                            </span>
+                            <span class="num mono">{{ s.n }}</span>
+                          </a>
+                        } @empty {
+                          <p class="muted-note">This answer does not link to any sources.</p>
+                        }
+                      </div>
+                    }
+                    @case ('steps') {
+                      <ol class="steps">
+                        @for (b of stepsOf(m); track b.id) {
+                          <li [class.err]="b.status === 'error'">
+                            <button type="button" class="step" (click)="toggleActivity(b.id)" [disabled]="!b.preview">
+                              <span class="state" [class.run]="b.status === 'running'" [class.bad]="b.status === 'error'"></span>
+                              <app-icon [name]="b.kind === 'skill' ? 'library' : 'terminal'" [size]="15" />
+                              <span class="s-label">{{ b.label }}</span>
+                              @if (b.detail) {
+                                <em class="mono">{{ b.detail }}</em>
+                              }
+                              @if (b.preview) {
+                                <app-icon name="chevron" [size]="14" class="caret" [class.open]="expanded()[b.id]" />
+                              }
+                            </button>
+                            @if (expanded()[b.id] && b.preview) {
+                              <pre class="preview">{{ b.preview }}</pre>
+                            }
+                          </li>
+                        } @empty {
+                          <p class="muted-note">No skills or scripts were used for this answer.</p>
+                        }
+                      </ol>
+                    }
+                    @default {
+                      @if (sourcesOf(m.id).length) {
+                        <div class="chip-strip">
+                          @for (s of sourcesOf(m.id).slice(0, 4); track s.url) {
+                            <a class="src-chip" [href]="s.url" target="_blank" rel="noopener noreferrer" [title]="s.title">
+                              <span class="fav">{{ s.domain.charAt(0) }}</span>
+                              <span class="mono">{{ s.domain }}</span>
+                              <span class="n mono">{{ s.n }}</span>
+                            </a>
+                          }
+                          @if (sourcesOf(m.id).length > 4) {
+                            <button type="button" class="src-chip more mono" (click)="setTab(m.id, 'sources')">
+                              +{{ sourcesOf(m.id).length - 4 }}
+                            </button>
+                          }
+                        </div>
+                      }
+
+                      @if (stepsOf(m).length) {
+                        <div class="step-strip">
+                          @for (b of stepsOf(m); track b.id) {
+                            <button
+                              type="button"
+                              class="step-chip"
+                              [class.run]="b.status === 'running'"
+                              [class.bad]="b.status === 'error'"
+                              (click)="setTab(m.id, 'steps')"
+                            >
+                              <span class="state" [class.run]="b.status === 'running'" [class.bad]="b.status === 'error'"></span>
+                              {{ b.label }}
+                            </button>
+                          }
+                        </div>
+                      }
+
+                      <div class="answer-body">
+                        @if (raw()[m.id]) {
+                          <pre class="preview raw">{{ messagePlain(m.id) }}</pre>
+                        } @else {
+                          @for (b of m.blocks; track $index) {
+                            @if (b.type === 'text') {
+                              <app-markdown [source]="b.text" [cites]="true" (cite)="onCite(m.id, $event)" />
+                            }
+                          }
+                        }
+                        @if (m.pending && !hasText(m)) {
+                          <div class="thinking" aria-label="Working">
+                            <span></span><span></span><span></span>
+                            <em>{{ stepsOf(m).length ? 'Working through the skill…' : 'Choosing a skill…' }}</em>
+                          </div>
+                        }
+                        @if (m.error) {
+                          <div class="err-box">
+                            {{ m.error }}
+                            @if (needsSettings(m.error)) {
+                              <button type="button" class="link-btn" (click)="goSettings()">Open Settings</button>
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+                  }
+
+                  @if (!m.pending && (m.blocks.length || m.error)) {
+                    <div class="actions">
+                      <button type="button" (click)="copy(m.id, messagePlain(m.id))" title="Copy">
+                        <app-icon [name]="copied() === 'copy:' + m.id ? 'check' : 'copy'" [size]="15" />
+                        <span>{{ copied() === 'copy:' + m.id ? 'Copied' : 'Copy' }}</span>
+                      </button>
+                      <button type="button" (click)="toggleMarkdown(m.id)" title="Show markdown">
+                        <app-icon name="code" [size]="15" />
+                        <span>{{ raw()[m.id] ? 'Preview' : 'Markdown' }}</span>
+                      </button>
+                      <button type="button" (click)="share(m)" title="Share"><app-icon name="share" [size]="15" /><span>Share</span></button>
+                      <button type="button" (click)="branch(m.id)" title="Branch into a new chat">
+                        <app-icon name="branch" [size]="15" /><span>Branch</span>
+                      </button>
+                      @if ($last && !chat.busy()) {
+                        <button type="button" (click)="chat.regenerate()" title="Regenerate">
+                          <app-icon name="history" [size]="15" /><span>Rewrite</span>
+                        </button>
+                      }
+                      <span class="spacer"></span>
+                      <button type="button" class="thumb" [class.on]="m.feedback === 'up'" (click)="rate(m.id, 'up')" aria-label="Helpful">
+                        <app-icon name="up" [size]="15" />
+                      </button>
+                      <button type="button" class="thumb" [class.on]="m.feedback === 'down'" (click)="rate(m.id, 'down')" aria-label="Not helpful">
+                        <app-icon name="down" [size]="15" />
+                      </button>
+                    </div>
+                  }
+                </article>
+              }
+            }
           }
-          @if (attachError()) {
-            <span class="err-text">{{ attachError() }}</span>
-          }
-        </div>
-      }
-      <div class="modes">
-        <button
-          type="button"
-          class="mode"
-          [class.on]="chat.active()?.deep"
-          (click)="chat.setDeep(!chat.active()?.deep)"
-        >
-          Deep research
-        </button>
-        @if (notice()) {
-          <span class="notice">{{ notice() }}</span>
         }
       </div>
-      <div class="box">
-        <label class="icon-btn attach">
-          <input type="file" multiple hidden (change)="onFiles($event)" />
-          <app-icon name="attach" [size]="18" />
-          <span class="sr">Attach files</span>
-        </label>
+    </div>
+
+    <!-- Composer -->
+    <div class="dock">
+      <form class="composer" (submit)="$event.preventDefault(); submit()">
+        @if (chat.activeAttachments().length || attachError()) {
+          <div class="attached">
+            @for (f of chat.activeAttachments(); track f.name) {
+              <span class="pill mono">
+                <app-icon name="attach" [size]="12" />
+                {{ f.name }}
+                <button type="button" (click)="chat.detach(f.name)" aria-label="Remove file">
+                  <app-icon name="close" [size]="11" />
+                </button>
+              </span>
+            }
+            @if (attachError()) {
+              <span class="attach-err">{{ attachError() }}</span>
+            }
+          </div>
+        }
         <textarea
+          #box
           rows="1"
           [value]="draft()"
           (input)="onDraft($event)"
           (keydown)="onEnter($event)"
-          placeholder="Message Research Buddy"
+          [placeholder]="hasMessages() ? 'Ask a follow-up…' : 'Ask a research question…'"
           [disabled]="chat.busy()"
+          aria-label="Message"
         ></textarea>
-        @if (chat.busy()) {
-          <button class="icon-btn stop" type="button" (click)="chat.stop()" aria-label="Stop">
-            <app-icon name="stop" [size]="16" />
+        <div class="composer-row">
+          <label class="tool" title="Attach files">
+            <input type="file" multiple hidden (change)="onFiles($event)" />
+            <app-icon name="attach" [size]="17" />
+            <span class="sr">Attach files</span>
+          </label>
+
+          <div class="skill-pin">
+            <button type="button" class="chip" (click)="pinnedOpen.set(!pinnedOpen())" [attr.aria-expanded]="pinnedOpen()">
+              <app-icon name="layers" [size]="14" />
+              <span class="chip-text">{{ chat.active()?.skill || 'Any skill' }}</span>
+              <app-icon name="chevron" [size]="13" class="down" />
+            </button>
+            @if (pinnedOpen() && catalog(); as cat) {
+              <div class="menu-list" role="listbox">
+                <input
+                  class="menu-search"
+                  type="search"
+                  placeholder="Find a skill"
+                  [value]="skillQuery()"
+                  (input)="skillQuery.set($any($event.target).value)"
+                />
+                <button type="button" [class.on]="!chat.active()?.skill" (click)="setSkill('')">Any skill — let the assistant choose</button>
+                @for (s of skillMatches(); track s.name) {
+                  <button type="button" [class.on]="chat.active()?.skill === s.name" (click)="setSkill(s.name)">
+                    <i class="dot" [style.background]="'var(--stage-' + s.stageNumber + ')'"></i>{{ s.name }}
+                  </button>
+                }
+              </div>
+            }
+          </div>
+
+          <button type="button" class="chip" [class.on]="chat.active()?.deep" (click)="chat.setDeep(!chat.active()?.deep)" title="Deep research">
+            <app-icon name="search" [size]="14" />
+            <span class="chip-text">Deep</span>
           </button>
+
+          <span class="spacer"></span>
+
+          <button type="button" class="chip model" (click)="goSettings()" [title]="'Model: ' + (settings.model() || 'not set')">
+            <i class="rose-dot" [class.off]="!settings.ready()"></i>
+            <span class="chip-text mono">{{ shortModel() }}</span>
+          </button>
+
+          @if (chat.busy()) {
+            <button class="send stop" type="button" (click)="chat.stop()" aria-label="Stop">
+              <app-icon name="stop" [size]="15" />
+            </button>
+          } @else {
+            <button class="send" type="submit" [disabled]="!draft().trim() || !settings.ready()" aria-label="Send">
+              <app-icon name="arrow" [size]="17" />
+            </button>
+          }
+        </div>
+      </form>
+      <p class="fineprint">
+        @if (notice()) {
+          <span class="notice">{{ notice() }}</span>
         } @else {
-          <button class="icon-btn send" type="submit" [disabled]="!draft().trim() || !settings.ready()" aria-label="Send">
-            <app-icon name="send" [size]="16" />
-          </button>
+          Research Buddy can make mistakes. Check citations, statistics, and venue rules before relying on them.
         }
-      </div>
-      @if (chat.active(); as live) {
-        @if (live.messages.length && !chat.busy()) {
-          <button class="regenerate" type="button" (click)="chat.regenerate()">Regenerate last answer</button>
+      </p>
+    </div>
+  </section>
+
+  <!-- Sources rail ------------------------------------------------------------>
+  <aside class="sources" aria-label="Sources">
+    <header class="sources-head">
+      <h3>Sources <span class="mono count">{{ focusSources().length }}</span></h3>
+      <button class="icon-btn close-sources" type="button" (click)="sourcesDrawer.set(false)" aria-label="Close sources">
+        <app-icon name="close" [size]="16" />
+      </button>
+    </header>
+    <div class="sources-scroll">
+      @for (s of focusSources(); track s.url) {
+        <a
+          class="rail-card"
+          [id]="'src-' + s.n"
+          [class.on]="activeCite() === s.n"
+          [href]="s.url"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <span class="rc-top">
+            <span class="fav">{{ s.domain.charAt(0) }}</span>
+            <span class="mono dom">{{ s.domain }}</span>
+            <span class="num mono">{{ s.n }}</span>
+          </span>
+          <strong>{{ s.title }}</strong>
+          @if (s.snippet && s.snippet !== s.title) {
+            <span class="snip">{{ s.snippet }}</span>
+          }
+        </a>
+      } @empty {
+        <div class="rail-empty">
+          <app-icon name="globe" [size]="22" />
+          <p>Papers and pages the answer cites will appear here, numbered to match the citations in the text.</p>
+        </div>
+      }
+
+      @if (focusMessage(); as fm) {
+        @if (stepsOf(fm).length) {
+          <div class="rail-section">
+            <h4>Steps</h4>
+            @for (b of stepsOf(fm); track b.id) {
+              <div class="rail-step">
+                <span class="state" [class.run]="b.status === 'running'" [class.bad]="b.status === 'error'"></span>
+                <span>{{ b.label }}</span>
+              </div>
+            }
+          </div>
         }
       }
-      <p class="fineprint">
-        Research Buddy can make mistakes. Verify citations, statistics, and venue rules before you rely on them.
-      </p>
-    </form>
-  </section>
+
+      @if (chat.active()?.skill; as pinned) {
+        <div class="rail-section">
+          <h4>Pinned skill</h4>
+          <div class="rail-step"><app-icon name="layers" [size]="14" /> <span class="mono">{{ pinned }}</span></div>
+        </div>
+      }
+    </div>
+  </aside>
 </div>

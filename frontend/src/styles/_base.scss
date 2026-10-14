@@ -11,9 +11,9 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 17px;
-  line-height: 1.47;
-  letter-spacing: -0.022em;
+  font-size: 15px;
+  line-height: 1.55;
+  font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -28,6 +28,7 @@ a {
 
   &:hover {
     text-decoration: underline;
+    text-underline-offset: 3px;
   }
 }
 
@@ -53,7 +54,7 @@ kbd,
 pre,
 samp {
   font-family: var(--font-mono);
-  font-size: 0.92em;
+  font-size: 0.88em;
 }
 
 ::selection {
@@ -68,32 +69,49 @@ samp {
 .page {
   width: min(var(--page-width), 100%);
   margin-inline: auto;
-  padding: 36px var(--gutter) 72px;
+  padding: 48px var(--gutter) 72px;
 }
 
 .page-narrow {
-  width: min(720px, 100%);
+  width: min(760px, 100%);
   margin-inline: auto;
-  padding: 36px var(--gutter) 72px;
+  padding: 48px var(--gutter) 72px;
 }
 
+// Small uppercase label with a rose sparkle, as in the answer eyebrow.
 .eyebrow {
-  display: block;
-  margin-bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
   color: var(--text-2);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+
+  &::before {
+    content: '';
+    width: 10px;
+    height: 10px;
+    background: var(--accent);
+    clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  }
 }
 
 h1,
 h2,
 h3 {
   margin: 0;
+  color: var(--text);
   font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+h2 {
   font-weight: 600;
-  letter-spacing: -0.025em;
 }
 
 p {
@@ -103,4 +121,43 @@ p {
 
 p:last-child {
   margin-bottom: 0;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+// Page heading block shared by the content pages.
+.head {
+  margin-bottom: 32px;
+
+  h1 {
+    margin-bottom: 10px;
+    font-size: clamp(30px, 4.4vw, 40px);
+  }
+
+  p {
+    max-width: 40em;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --gutter: 16px;
+  }
+
+  .page,
+  .page-narrow {
+    padding-top: 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

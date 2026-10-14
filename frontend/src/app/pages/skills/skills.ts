@@ -15,37 +15,44 @@ import { Icon } from '../../shared/icon';
     <div class="page">
       <header class="head">
         <span class="eyebrow">Library</span>
-        <h1>Skills</h1>
-        <p>Each skill is a set of instructions the assistant loads before it works. Scripts run when the answer has to be retrieved or computed.</p>
+        <h1>Research skills</h1>
+        <p>Each skill is a method the assistant loads before it works. Skills with scripts retrieve or compute part of the answer instead of guessing it.</p>
       </header>
 
       @if (catalog(); as cat) {
         <div class="toolbar">
           <label class="search">
-            <app-icon name="search" [size]="16" />
-            <input type="search" placeholder="Search skills" [value]="query()" (input)="query.set($any($event.target).value)" />
+            <app-icon name="search" [size]="17" />
+            <input type="search" placeholder="Search {{ cat.skills.length }} skills by name, topic or tag" [value]="query()" (input)="query.set($any($event.target).value)" />
+            <span class="mono found">{{ filtered().length }}</span>
           </label>
           <div class="filters" role="tablist" aria-label="Stage">
-            <button type="button" [class.on]="!stage()" (click)="setStage(null)">All</button>
+            <button type="button" [class.on]="!stage()" (click)="setStage(null)">All stages</button>
             @for (s of cat.stages; track s.id) {
-              <button type="button" [class.on]="stage() === s.id" (click)="setStage(s.id)">{{ s.name }}</button>
+              <button type="button" [class.on]="stage() === s.id" (click)="setStage(s.id)">
+                <i class="dot" [style.background]="'var(--stage-' + s.number + ')'"></i>{{ s.name }}
+              </button>
             }
           </div>
         </div>
 
         <div class="list">
           @for (skill of filtered(); track skill.name) {
-            <a class="item card" [routerLink]="['/skills', skill.name]">
-              <i class="dot" [style.background]="'var(--stage-' + skill.stageNumber + ')'"></i>
-              <div>
-                <strong>{{ skill.name }}</strong>
-                <span class="desc">{{ skill.description }}</span>
-                <span class="meta">{{ skill.stageName }}@if (skill.hasScripts) { · script}</span>
-              </div>
-              <app-icon name="chevron" [size]="16" />
+            <a class="item" [routerLink]="['/skills', skill.name]">
+              <span class="top">
+                <span class="stage-tag mono" [style.color]="'var(--stage-' + skill.stageNumber + ')'">
+                  {{ skill.stageNumber < 10 ? '0' + skill.stageNumber : skill.stageNumber }}
+                </span>
+                <span class="stage-name">{{ skill.stageName }}</span>
+                @if (skill.hasScripts) {
+                  <span class="script mono"><app-icon name="terminal" [size]="12" /> script</span>
+                }
+              </span>
+              <strong class="mono">{{ skill.name }}</strong>
+              <span class="desc">{{ skill.description }}</span>
             </a>
           } @empty {
-            <p>No skills match that search.</p>
+            <p class="none">No skills match that search.</p>
           }
         </div>
       } @else if (failed()) {

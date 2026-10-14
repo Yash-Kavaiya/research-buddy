@@ -1,106 +1,112 @@
-// Design tokens. Colours, type, and spacing follow Apple's web and system conventions.
-// SF Pro is used where the device has it; Inter stands in everywhere else.
+// Design tokens: "Rose" answer-engine system (cool paper canvas, white surfaces, one rose accent).
+// Hanken Grotesk for headings, Inter for body and UI, JetBrains Mono for citations, domains, and code.
 
 @mixin light {
   color-scheme: light;
-  --bg: #ffffff;
-  --bg-alt: #f5f5f7;
-  --bg-elevated: #ffffff;
-  --bg-inset: #f5f5f7;
-  --bg-hover: rgba(0, 0, 0, 0.04);
-  --bg-active: rgba(0, 0, 0, 0.07);
-  --text: #1d1d1f;
-  --text-2: #6e6e73;
-  --text-3: #86868b;
-  --border: rgba(0, 0, 0, 0.1);
-  --border-strong: rgba(0, 0, 0, 0.18);
-  --accent: #0071e3;
-  --accent-hover: #0077ed;
-  --accent-soft: rgba(0, 113, 227, 0.1);
-  --link: #0066cc;
+  --bg: #f5f6f8; // canvas
+  --bg-alt: #ffffff;
+  --bg-elevated: #ffffff; // surface
+  --bg-inset: #eef0f3; // fill
+  --bg-hover: rgba(20, 22, 27, 0.04);
+  --bg-active: rgba(20, 22, 27, 0.07);
+  --text: #14161b;
+  --text-2: #5b6472;
+  --text-3: #8a93a1;
+  --border: #e6e8ec;
+  --border-strong: #d5d9df;
+  --accent: #e11d48;
+  --accent-hover: #be123c;
+  --accent-soft: rgba(225, 29, 72, 0.1);
+  --accent-tint: #fff1f3;
+  --accent-line: #fbcfd8;
+  --link: #e11d48;
   --on-accent: #ffffff;
-  --danger: #d70015;
-  --danger-soft: rgba(215, 0, 21, 0.08);
-  --success: #248a3d;
-  --success-soft: rgba(36, 138, 61, 0.1);
-  --warning: #b25000;
-  --nav-bg: rgba(255, 255, 255, 0.72);
-  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.06);
-  --shadow-raised: 0 12px 40px rgba(0, 0, 0, 0.12);
-  --hero-glow: radial-gradient(60% 60% at 50% 0%, rgba(0, 113, 227, 0.1), transparent 70%);
-  --code-kw: #ad3da4;
-  --code-str: #d12f1b;
-  --code-num: #272ad8;
-  --code-com: #707f8c;
-  --code-fn: #3e8087;
+  --danger: #c2410c;
+  --danger-soft: rgba(194, 65, 12, 0.08);
+  --success: #15803d;
+  --success-soft: rgba(21, 128, 61, 0.1);
+  --warning: #b45309;
+  --nav-bg: rgba(255, 255, 255, 0.86);
+  --shadow-card: 0 1px 2px rgba(20, 22, 27, 0.04), 0 8px 24px rgba(20, 22, 27, 0.05);
+  --shadow-raised: 0 2px 6px rgba(20, 22, 27, 0.06), 0 24px 60px rgba(20, 22, 27, 0.14);
+  --shadow-composer: 0 1px 2px rgba(20, 22, 27, 0.04), 0 12px 32px rgba(20, 22, 27, 0.08);
+  --code-bg: #f7f8fa;
+  --code-kw: #be123c;
+  --code-str: #b45309;
+  --code-num: #1d4ed8;
+  --code-com: #8a93a1;
+  --code-fn: #0f172a;
 }
 
 @mixin dark {
   color-scheme: dark;
-  --bg: #000000;
-  --bg-alt: #101012;
-  --bg-elevated: #1d1d1f;
-  --bg-inset: #1d1d1f;
-  --bg-hover: rgba(255, 255, 255, 0.07);
-  --bg-active: rgba(255, 255, 255, 0.12);
-  --text: #f5f5f7;
-  --text-2: #a1a1a6;
-  --text-3: #86868b;
-  --border: rgba(255, 255, 255, 0.12);
-  --border-strong: rgba(255, 255, 255, 0.22);
-  --accent: #0a84ff;
-  --accent-hover: #2997ff;
-  --accent-soft: rgba(10, 132, 255, 0.18);
-  --link: #2997ff;
+  --bg: #0d0f13;
+  --bg-alt: #13161b;
+  --bg-elevated: #15181e;
+  --bg-inset: #1c2027;
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --bg-active: rgba(255, 255, 255, 0.09);
+  --text: #eef0f3;
+  --text-2: #a0a8b6;
+  --text-3: #6f7886;
+  --border: #242830;
+  --border-strong: #323843;
+  --accent: #fb3f6c;
+  --accent-hover: #ff5c84;
+  --accent-soft: rgba(251, 63, 108, 0.16);
+  --accent-tint: rgba(251, 63, 108, 0.1);
+  --accent-line: rgba(251, 63, 108, 0.38);
+  --link: #ff6b8f;
   --on-accent: #ffffff;
-  --danger: #ff453a;
-  --danger-soft: rgba(255, 69, 58, 0.14);
-  --success: #30d158;
-  --success-soft: rgba(48, 209, 88, 0.14);
-  --warning: #ff9f0a;
-  --nav-bg: rgba(22, 22, 23, 0.72);
-  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.5);
-  --shadow-raised: 0 12px 40px rgba(0, 0, 0, 0.6);
-  --hero-glow: radial-gradient(60% 60% at 50% 0%, rgba(10, 132, 255, 0.2), transparent 70%);
-  --code-kw: #fc5fa3;
-  --code-str: #fc6a5d;
-  --code-num: #d0bf69;
-  --code-com: #6c7986;
-  --code-fn: #67b7a4;
+  --danger: #fb923c;
+  --danger-soft: rgba(251, 146, 60, 0.14);
+  --success: #4ade80;
+  --success-soft: rgba(74, 222, 128, 0.12);
+  --warning: #fbbf24;
+  --nav-bg: rgba(19, 22, 27, 0.86);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+  --shadow-raised: 0 2px 6px rgba(0, 0, 0, 0.5), 0 24px 60px rgba(0, 0, 0, 0.55);
+  --shadow-composer: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.4);
+  --code-bg: #111419;
+  --code-kw: #ff6b8f;
+  --code-str: #fbbf24;
+  --code-num: #7dd3fc;
+  --code-com: #6f7886;
+  --code-fn: #eef0f3;
 }
 
 :root {
   @include light;
 
-  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Inter Variable',
-    'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter Variable',
-    'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --font-mono: 'SF Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  --font-sans: 'Inter Variable', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Hanken Grotesk Variable', 'Hanken Grotesk', 'Inter Variable', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --radius-s: 8px;
   --radius-m: 12px;
-  --radius-l: 18px;
-  --radius-xl: 28px;
-  --radius-pill: 980px;
+  --radius-l: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
 
-  --nav-height: 48px;
+  --rail-width: 64px;
+  --nav-height: 56px; // mobile top bar
   --page-width: 1080px;
-  --gutter: 22px;
-  --ease: cubic-bezier(0.28, 0.11, 0.32, 1);
+  --gutter: 24px;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 
-  --stage-1: #0071e3;
-  --stage-2: #5e5ce6;
-  --stage-3: #af52de;
-  --stage-4: #ff2d55;
-  --stage-5: #ff3b30;
-  --stage-6: #ff9500;
-  --stage-7: #c79a00;
-  --stage-8: #34c759;
-  --stage-9: #00a89d;
-  --stage-10: #30b0c7;
-  --stage-11: #32ade6;
-  --stage-12: #8e8e93;
+  // Lifecycle stage markers: warm-to-cool, no purple or teal.
+  --stage-1: #e11d48;
+  --stage-2: #ea580c;
+  --stage-3: #d97706;
+  --stage-4: #ca8a04;
+  --stage-5: #65a30d;
+  --stage-6: #16a34a;
+  --stage-7: #0284c7;
+  --stage-8: #2563eb;
+  --stage-9: #db2777;
+  --stage-10: #9f1239;
+  --stage-11: #475569;
+  --stage-12: #8a93a1;
 }
 
 @media (prefers-color-scheme: dark) {

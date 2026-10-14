@@ -97,13 +97,6 @@ import { Icon } from '../../shared/icon';
     </div>
   `,
   styles: `
-    .head {
-      margin-bottom: 22px;
-      h1 {
-        font-size: 40px;
-        margin-bottom: 8px;
-      }
-    }
     .actions,
     .row,
     .thumbs {
@@ -119,11 +112,7 @@ import { Icon } from '../../shared/icon';
       font-size: 20px;
     }
     textarea {
-      width: 100%;
-      border: 0;
-      background: transparent;
       resize: vertical;
-      outline: none;
     }
     .label {
       font-size: 13px;
@@ -139,8 +128,9 @@ import { Icon } from '../../shared/icon';
       background: transparent;
       font-size: 14px;
       &.on {
-        border-color: var(--accent);
-        background: var(--accent-soft);
+        border-color: var(--accent-line);
+        background: var(--accent-tint);
+        color: var(--accent);
       }
     }
     .status {

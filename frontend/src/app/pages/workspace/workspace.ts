@@ -3,6 +3,7 @@ import {
   afterNextRender,
   ChangeDetectionStrategy,
   Component,
+  computed,
   ElementRef,
   effect,
   inject,
@@ -10,14 +11,15 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { catchError, of } from 'rxjs';
 
 import { ApiService } from '../../core/api.service';
 import { ChatStore } from '../../core/chat.store';
-import { Attachment, Message, Thumb, messageText } from '../../core/models';
+import { Activity, Attachment, Message, Thumb, messageText } from '../../core/models';
 import { ProjectsStore } from '../../core/projects.store';
 import { SettingsStore } from '../../core/settings.store';
+import { Source, extractSources } from '../../core/sources';
 import { UsageStore } from '../../core/usage.store';
 import { Icon } from '../../shared/icon';
 import { Markdown } from '../../shared/markdown';
@@ -34,7 +36,7 @@ const MAX_BYTES = 3_000_000;
 
 @Component({
   selector: 'app-workspace',
-  imports: [RouterLink, Icon, Markdown, DatePipe],
+  imports: [Icon, Markdown, DatePipe],
   templateUrl: './workspace.html',
   styleUrl: './workspace.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -53,7 +55,17 @@ export class Workspace {
   });
   protected readonly starters = STARTERS;
   protected readonly draft = signal('');
-  protected readonly sidebarOpen = signal(false);
+  /** History column on wide screens; drawers on narrow ones. */
+  protected readonly historyOpen = signal(true);
+  protected readonly historyDrawer = signal(false);
+  protected readonly sourcesDrawer = signal(false);
+  protected readonly narrow = mediaSignal('(max-width: 1099px)');
+  private readonly wide = mediaSignal('(min-width: 1280px)');
+  protected readonly tabs = signal<Record<string, Tab>>({});
+  /** The answer whose sources the rail shows; null follows the latest answer. */
+  protected readonly focusId = signal<string | null>(null);
+  protected readonly activeCite = signal<number | null>(null);
+  protected readonly skillQuery = signal('');
   protected readonly expanded = signal<Record<string, boolean>>({});
   protected readonly copied = signal<string | null>(null);
   protected readonly attachError = signal('');
@@ -64,13 +76,53 @@ export class Workspace {
   protected readonly notice = signal('');
 
   private readonly scroller = viewChild<ElementRef<HTMLElement>>('scroller');
+  private readonly box = viewChild<ElementRef<HTMLTextAreaElement>>('box');
   private stickToBottom = true;
+
+  /** Sources per assistant message, recomputed as answers stream in. */
+  private readonly sources = computed(() => {
+    const map: Record<string, Source[]> = {};
+    for (const m of this.chat.active()?.messages ?? []) {
+      if (m.role === 'assistant') map[m.id] = extractSources(messageText(m));
+    }
+    return map;
+  });
+
+  protected readonly hasMessages = computed(() => !!this.chat.active()?.messages.length);
+
+  protected readonly focusMessage = computed<Message | null>(() => {
+    const messages = this.chat.active()?.messages ?? [];
+    const id = this.focusId();
+    const chosen = id ? messages.find((m) => m.id === id) : undefined;
+    return chosen ?? [...messages].reverse().find((m) => m.role === 'assistant') ?? null;
+  });
+
+  protected readonly focusSources = computed(() => {
+    const m = this.focusMessage();
+    return m ? (this.sources()[m.id] ?? []) : [];
+  });
+
+  protected readonly skillMatches = computed(() => {
+    const q = this.skillQuery().trim().toLowerCase();
+    const skills = this.catalog()?.skills ?? [];
+    return q ? skills.filter((s) => s.name.includes(q) || s.description.toLowerCase().includes(q)) : skills;
+  });
+
+  protected readonly shortModel = computed(() => {
+    const model = this.settings.model();
+    if (!model) return 'Choose model';
+    const name = model.split('/').pop() ?? model;
+    return name.length > 22 ? name.slice(0, 21) + '…' : name;
+  });
 
   constructor() {
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       const skill = params.get('skill');
-      if (skill) {
-        this.chat.create(skill);
+      const question = params.get('q');
+      if (skill || question) {
+        if (skill || this.chat.active()?.messages.length) this.chat.create(skill);
+        else if (!this.chat.active()) this.chat.create();
+        if (question) this.useStarter(question.slice(0, 4000));
         void this.router.navigate(['/workspace'], { replaceUrl: true });
         return;
       }
@@ -92,8 +144,17 @@ export class Workspace {
   protected onDraft(event: Event): void {
     const el = event.target as HTMLTextAreaElement;
     this.draft.set(el.value);
+    this.fitBox(el);
+  }
+
+  private fitBox(el: HTMLTextAreaElement): void {
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }
+
+  private resetBox(): void {
+    const el = this.box()?.nativeElement;
+    if (el) el.style.height = 'auto';
   }
 
   protected onEnter(event: Event): void {
@@ -108,18 +169,76 @@ export class Workspace {
     const text = this.draft().trim();
     if (!text) return;
     this.draft.set('');
+    this.resetBox();
     this.stickToBottom = true;
+    this.focusId.set(null);
+    this.activeCite.set(null);
     await this.chat.send(text);
     this.scrollIfNeeded();
   }
 
   protected useStarter(text: string): void {
     this.draft.set(text);
+    queueMicrotask(() => {
+      const box = this.box()?.nativeElement;
+      if (!box) return;
+      box.focus();
+      this.fitBox(box);
+    });
   }
 
   protected newChat(projectId: string | null = null): void {
     this.chat.create(null, projectId);
-    this.sidebarOpen.set(false);
+    this.historyDrawer.set(false);
+    this.focusId.set(null);
+  }
+
+  protected openHistory(): void {
+    if (this.narrow()) this.historyDrawer.set(true);
+    else this.historyOpen.set(true);
+  }
+
+  protected closeHistory(): void {
+    if (this.narrow()) this.historyDrawer.set(false);
+    else this.historyOpen.set(false);
+  }
+
+  protected closeDrawers(): void {
+    this.historyDrawer.set(false);
+    this.sourcesDrawer.set(false);
+  }
+
+  protected goSettings(): void {
+    void this.router.navigate(['/settings']);
+  }
+
+  protected tabOf(id: string): Tab {
+    return this.tabs()[id] ?? 'answer';
+  }
+
+  protected setTab(id: string, tab: Tab): void {
+    this.tabs.update((t) => ({ ...t, [id]: tab }));
+    this.focusId.set(id);
+  }
+
+  protected sourcesOf(id: string): Source[] {
+    return this.sources()[id] ?? [];
+  }
+
+  protected stepsOf(message: Message): Activity[] {
+    return message.blocks.filter((b): b is Activity => b.type === 'activity');
+  }
+
+  protected hasText(message: Message): boolean {
+    return message.blocks.some((b) => b.type === 'text' && b.text.trim());
+  }
+
+  /** A citation chip was clicked: show and highlight its source card. */
+  protected onCite(messageId: string, n: number): void {
+    this.focusId.set(messageId);
+    this.activeCite.set(n);
+    if (!this.wide()) this.sourcesDrawer.set(true);
+    setTimeout(() => document.getElementById(`src-${n}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 30);
   }
 
   protected chatsIn(projectId: string | null) {
@@ -140,12 +259,15 @@ export class Workspace {
 
   protected selectChat(id: string): void {
     this.chat.select(id);
-    this.sidebarOpen.set(false);
+    this.historyDrawer.set(false);
+    this.focusId.set(null);
+    this.activeCite.set(null);
   }
 
   protected setSkill(name: string): void {
     this.chat.setSkill(name || null);
     this.pinnedOpen.set(false);
+    this.skillQuery.set('');
   }
 
   protected toggleActivity(id: string): void {
@@ -232,6 +354,16 @@ export class Workspace {
     const el = this.scroller()?.nativeElement;
     if (el && this.stickToBottom) el.scrollTop = el.scrollHeight;
   }
+}
+
+type Tab = 'answer' | 'sources' | 'steps';
+
+/** A signal that tracks a CSS media query. */
+function mediaSignal(query: string) {
+  const mql = typeof matchMedia === 'function' ? matchMedia(query) : null;
+  const value = signal(mql?.matches ?? false);
+  mql?.addEventListener('change', (e) => value.set(e.matches));
+  return value.asReadonly();
 }
 
 function readAttachment(file: File): Promise<Attachment> {
