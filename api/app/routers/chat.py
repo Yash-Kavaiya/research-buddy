@@ -170,7 +170,7 @@ async def chat(body: ChatRequest, creds: Annotated[Credentials, Depends(credenti
                 yield sse(event)
             yield sse({"type": "done"})
         except Exception as exc:
-            status, message = describe(exc, creds.api_key, creds.s2_key, creds.ncbi_key)
+            status, message = describe(exc, creds.api_key, creds.s2_key, creds.ncbi_key, creds.openalex)
             log.warning("chat failed: %s (%s)", type(exc).__name__, status)
             yield sse({"type": "error", "status": status, "message": message})
         finally:
