@@ -14,6 +14,9 @@ MAX_HISTORY_TURNS = 60
 MAX_HISTORY_CHARS = 400_000
 MAX_ATTACHMENTS = 5
 MAX_ATTACHMENT_BYTES = 3_000_000
+# Attachments travel base64-encoded (4/3 larger) inside the JSON body, next to the message and
+# history. 2.8 MB raw is ~3.73 MB encoded, which leaves room for the rest under Vercel's 4.5 MB.
+MAX_TOTAL_ATTACHMENT_BYTES = 2_800_000
 MAX_LLM_CALLS = 30
 
 SCRIPT_TIMEOUT_SECONDS = 90

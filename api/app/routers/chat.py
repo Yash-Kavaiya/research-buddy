@@ -96,6 +96,12 @@ class ChatRequest(BaseModel):
             raise ValueError("the conversation is too long; start a new chat")
         if self.skill is not None and self.skill not in load_catalog():
             raise ValueError("unknown skill")
+        encoded = sum(len(a.content) for a in self.attachments)
+        if encoded > config.MAX_TOTAL_ATTACHMENT_BYTES * 4 // 3 + 4 * len(self.attachments):
+            raise ValueError(
+                f"attachments are too large: keep them under "
+                f"{config.MAX_TOTAL_ATTACHMENT_BYTES / 1_000_000:.1f} MB in total"
+            )
         for attachment in self.attachments:
             if not safe_filename(attachment.name):
                 raise ValueError(
@@ -143,6 +149,7 @@ def rate_limit(request: Request) -> None:
 
 def _write_attachments(workdir: Path, attachments: list[Attachment]) -> list[str]:
     names = []
+    total = 0
     for attachment in attachments:
         if attachment.encoding == "base64":
             try:
@@ -153,6 +160,13 @@ def _write_attachments(workdir: Path, attachments: list[Attachment]) -> list[str
             data = attachment.content.encode("utf-8")
         if len(data) > config.MAX_ATTACHMENT_BYTES:
             raise HTTPException(413, f"attachment {attachment.name} is too large")
+        total += len(data)
+        if total > config.MAX_TOTAL_ATTACHMENT_BYTES:
+            raise HTTPException(
+                413,
+                f"attachments are too large: keep them under "
+                f"{config.MAX_TOTAL_ATTACHMENT_BYTES / 1_000_000:.1f} MB in total",
+            )
         (workdir / attachment.name).write_bytes(data)
         names.append(attachment.name)
     return names
