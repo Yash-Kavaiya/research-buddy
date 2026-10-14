@@ -32,7 +32,12 @@ const STARTERS = [
 ];
 
 const MAX_FILES = 5;
-const MAX_BYTES = 3_000_000;
+/**
+ * Files are sent base64-encoded inside one JSON request, and Vercel rejects request bodies over
+ * 4.5 MB. Keep the total raw size under 2.8 MB (~3.7 MB encoded) to leave room for the chat.
+ * Must match MAX_TOTAL_ATTACHMENT_BYTES in api/app/config.py.
+ */
+export const MAX_TOTAL_BYTES = 2_800_000;
 
 @Component({
   selector: 'app-workspace',
@@ -336,9 +341,12 @@ export class Workspace {
       return;
     }
     const attachments: Attachment[] = [];
+    let total = this.chat.activeAttachments().reduce((sum, a) => sum + attachmentBytes(a), 0);
     for (const file of files) {
-      if (file.size > MAX_BYTES) {
-        this.attachError.set(`${file.name} is larger than 3 MB.`);
+      if (total + file.size > MAX_TOTAL_BYTES) {
+        this.attachError.set(
+          `${file.name} would take attachments over ${MAX_TOTAL_BYTES / 1_000_000} MB in total.`,
+        );
         continue;
       }
       if (!/^[A-Za-z0-9._-]+$/.test(file.name)) {
@@ -346,6 +354,7 @@ export class Workspace {
         continue;
       }
       attachments.push(await readAttachment(file));
+      total += file.size;
     }
     if (attachments.length) this.chat.attach(attachments);
   }
@@ -364,6 +373,12 @@ function mediaSignal(query: string) {
   const value = signal(mql?.matches ?? false);
   mql?.addEventListener('change', (e) => value.set(e.matches));
   return value.asReadonly();
+}
+
+/** Approximate raw size of an attachment already read into memory. */
+export function attachmentBytes(a: Attachment): number {
+  if (a.encoding === 'base64') return Math.floor((a.content.length * 3) / 4);
+  return new TextEncoder().encode(a.content).length;
 }
 
 function readAttachment(file: File): Promise<Attachment> {

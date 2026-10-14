@@ -175,3 +175,31 @@ def test_catalog_matches_disk() -> None:
     catalog = load_catalog()
     assert len(catalog) == 59
     assert catalog["citation-verifier"].scripts
+
+
+def test_chat_rejects_attachments_over_the_total_budget(client: TestClient) -> None:
+    import base64
+
+    from app import config
+
+    chunk = base64.b64encode(b"x" * (config.MAX_TOTAL_ATTACHMENT_BYTES // 2 + 1000)).decode()
+    response = client.post(
+        "/api/chat",
+        headers={"X-LLM-Provider": "google", "X-LLM-Model": "gemini-2.5-flash", "X-LLM-Key": "k"},
+        json={
+            "message": "hi",
+            "attachments": [
+                {"name": "a.pdf", "content": chunk, "encoding": "base64"},
+                {"name": "b.pdf", "content": chunk, "encoding": "base64"},
+            ],
+        },
+    )
+    assert response.status_code == 422
+    assert "in total" in response.json()["message"]
+
+
+def test_total_attachment_budget_fits_vercel_body_cap() -> None:
+    from app import config
+
+    encoded = config.MAX_TOTAL_ATTACHMENT_BYTES * 4 / 3
+    assert encoded + config.MAX_MESSAGE_CHARS + config.MAX_HISTORY_CHARS < 4_500_000

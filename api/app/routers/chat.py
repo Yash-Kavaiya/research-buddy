@@ -9,7 +9,7 @@ import logging
 import shutil
 import tempfile
 import time
-from collections import defaultdict, deque
+from collections import OrderedDict, deque
 from pathlib import Path
 from typing import Annotated, AsyncIterator, Literal
 
@@ -96,6 +96,12 @@ class ChatRequest(BaseModel):
             raise ValueError("the conversation is too long; start a new chat")
         if self.skill is not None and self.skill not in load_catalog():
             raise ValueError("unknown skill")
+        encoded = sum(len(a.content) for a in self.attachments)
+        if encoded > config.MAX_TOTAL_ATTACHMENT_BYTES * 4 // 3 + 4 * len(self.attachments):
+            raise ValueError(
+                f"attachments are too large: keep them under "
+                f"{config.MAX_TOTAL_ATTACHMENT_BYTES / 1_000_000:.1f} MB in total"
+            )
         for attachment in self.attachments:
             if not safe_filename(attachment.name):
                 raise ValueError(
@@ -107,26 +113,43 @@ class ChatRequest(BaseModel):
         return self
 
 
-_hits: dict[str, deque[float]] = defaultdict(deque)
+_hits: "OrderedDict[str, deque[float]]" = OrderedDict()
+_MAX_TRACKED_CLIENTS = 5000
+
+
+def client_address(request: Request) -> str:
+    """The caller's address as set by the platform, never a client-supplied header.
+
+    Vercel overwrites ``x-real-ip`` with the connecting client's address. ``X-Forwarded-For``
+    is ignored: its first entry is whatever the client chose to send.
+    """
+    real_ip = request.headers.get("x-real-ip", "").strip()
+    if real_ip:
+        return real_ip
+    return request.client.host if request.client else "unknown"
 
 
 def rate_limit(request: Request) -> None:
     """Best-effort limit per client address. Each serverless instance counts on its own."""
-    forwarded = request.headers.get("x-forwarded-for", "")
-    client = forwarded.split(",")[0].strip() or (request.client.host if request.client else "unknown")
+    client = client_address(request)
     now = time.monotonic()
-    hits = _hits[client]
+    hits = _hits.get(client)
+    if hits is None:
+        hits = _hits[client] = deque()
+    _hits.move_to_end(client)
     while hits and now - hits[0] > config.RATE_LIMIT_WINDOW_SECONDS:
         hits.popleft()
     if len(hits) >= config.RATE_LIMIT_REQUESTS:
         raise HTTPException(429, "Too many requests. Wait a minute and try again.")
     hits.append(now)
-    if len(_hits) > 5000:
-        _hits.clear()
+    # Evict the least recently seen clients one at a time; never reset everyone at once.
+    while len(_hits) > _MAX_TRACKED_CLIENTS:
+        _hits.popitem(last=False)
 
 
 def _write_attachments(workdir: Path, attachments: list[Attachment]) -> list[str]:
     names = []
+    total = 0
     for attachment in attachments:
         if attachment.encoding == "base64":
             try:
@@ -137,6 +160,13 @@ def _write_attachments(workdir: Path, attachments: list[Attachment]) -> list[str
             data = attachment.content.encode("utf-8")
         if len(data) > config.MAX_ATTACHMENT_BYTES:
             raise HTTPException(413, f"attachment {attachment.name} is too large")
+        total += len(data)
+        if total > config.MAX_TOTAL_ATTACHMENT_BYTES:
+            raise HTTPException(
+                413,
+                f"attachments are too large: keep them under "
+                f"{config.MAX_TOTAL_ATTACHMENT_BYTES / 1_000_000:.1f} MB in total",
+            )
         (workdir / attachment.name).write_bytes(data)
         names.append(attachment.name)
     return names
