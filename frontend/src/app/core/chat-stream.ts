@@ -28,11 +28,20 @@ export class ChatStreamService {
 
     if (!response.ok) {
       let message = `The server returned an error (${response.status}).`;
+      let fromServer = false;
       try {
         const payload = (await response.json()) as { message?: string };
-        if (payload.message) message = payload.message;
+        if (payload.message) {
+          message = payload.message;
+          fromServer = true;
+        }
       } catch {
         /* not JSON */
+      }
+      if (response.status === 413 && !fromServer) {
+        // Vercel answers oversized bodies itself with a non-JSON FUNCTION_PAYLOAD_TOO_LARGE.
+        message =
+          'This message is too large to send. Remove some attachments or start a new chat.';
       }
       yield { type: 'error', status: response.status, message };
       return;
