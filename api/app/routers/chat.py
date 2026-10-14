@@ -9,7 +9,7 @@ import logging
 import shutil
 import tempfile
 import time
-from collections import defaultdict, deque
+from collections import OrderedDict, deque
 from pathlib import Path
 from typing import Annotated, AsyncIterator, Literal
 
@@ -107,22 +107,38 @@ class ChatRequest(BaseModel):
         return self
 
 
-_hits: dict[str, deque[float]] = defaultdict(deque)
+_hits: "OrderedDict[str, deque[float]]" = OrderedDict()
+_MAX_TRACKED_CLIENTS = 5000
+
+
+def client_address(request: Request) -> str:
+    """The caller's address as set by the platform, never a client-supplied header.
+
+    Vercel overwrites ``x-real-ip`` with the connecting client's address. ``X-Forwarded-For``
+    is ignored: its first entry is whatever the client chose to send.
+    """
+    real_ip = request.headers.get("x-real-ip", "").strip()
+    if real_ip:
+        return real_ip
+    return request.client.host if request.client else "unknown"
 
 
 def rate_limit(request: Request) -> None:
     """Best-effort limit per client address. Each serverless instance counts on its own."""
-    forwarded = request.headers.get("x-forwarded-for", "")
-    client = forwarded.split(",")[0].strip() or (request.client.host if request.client else "unknown")
+    client = client_address(request)
     now = time.monotonic()
-    hits = _hits[client]
+    hits = _hits.get(client)
+    if hits is None:
+        hits = _hits[client] = deque()
+    _hits.move_to_end(client)
     while hits and now - hits[0] > config.RATE_LIMIT_WINDOW_SECONDS:
         hits.popleft()
     if len(hits) >= config.RATE_LIMIT_REQUESTS:
         raise HTTPException(429, "Too many requests. Wait a minute and try again.")
     hits.append(now)
-    if len(_hits) > 5000:
-        _hits.clear()
+    # Evict the least recently seen clients one at a time; never reset everyone at once.
+    while len(_hits) > _MAX_TRACKED_CLIENTS:
+        _hits.popitem(last=False)
 
 
 def _write_attachments(workdir: Path, attachments: list[Attachment]) -> list[str]:
