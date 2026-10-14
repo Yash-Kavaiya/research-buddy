@@ -13,14 +13,20 @@ from .. import config
 from ..catalog import load_catalog
 
 SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$")
-# Drop LLM and cloud credentials so a script cannot send the user's key elsewhere.
-_STRIP_ENV = {
-    "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY",
-    "GROQ_API_KEY", "OPENROUTER_API_KEY", "NVIDIA_API_KEY", "AZURE_OPENAI_API_KEY",
-    "AZURE_API_KEY", "AWS_SECRET_ACCESS_KEY", "AWS_ACCESS_KEY_ID", "AWS_SESSION_TOKEN",
-    "MISTRAL_API_KEY", "COHERE_API_KEY", "TOGETHER_API_KEY", "FIREWORKS_API_KEY",
-    "XAI_API_KEY", "DEEPSEEK_API_KEY",
-}
+# Scripts get only what they need to run, never the server's environment: a denylist misses any
+# secret added later (and runtime tokens such as VERCEL_OIDC_TOKEN). Per-request scholarly-API
+# keys are added on top by make_script_tools.
+_ALLOWED_ENV = (
+    "PATH", "HOME", "USER", "LANG", "LANGUAGE", "LC_ALL", "LC_CTYPE", "TZ",
+    "TMPDIR", "TMP", "TEMP", "LD_LIBRARY_PATH", "PYTHONHOME",
+    "SSL_CERT_FILE", "SSL_CERT_DIR", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE",
+    "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy",
+)
+
+
+def script_base_env() -> dict[str, str]:
+    """The allowlisted slice of the server environment handed to skill scripts."""
+    return {k: os.environ[k] for k in _ALLOWED_ENV if k in os.environ}
 
 
 def _outside_workdir(arg: str) -> bool:
@@ -82,12 +88,12 @@ def make_script_tools(workdir: Path, script_env: dict[str, str] | None = None) -
                 "error": f"argument {unsafe!r} is not allowed: file arguments must stay in the working folder",
             }
 
-        env = {k: v for k, v in os.environ.items() if k not in _STRIP_ENV}
+        env = script_base_env()
         env.update(extra_env)
         # Serverless runtimes add the installed packages to sys.path at startup rather than
         # through PYTHONPATH, so hand the child the same path or numpy/scipy won't import.
         inherited = [p for p in sys.path if p and os.path.isdir(p)]
-        env["PYTHONPATH"] = os.pathsep.join([str(scripts_root), *inherited, env.get("PYTHONPATH", "")])
+        env["PYTHONPATH"] = os.pathsep.join([str(scripts_root), *inherited])
         env["PYTHONUNBUFFERED"] = "1"
         try:
             completed = subprocess.run(
