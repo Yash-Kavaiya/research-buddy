@@ -160,6 +160,17 @@ def test_run_script_rejects_paths_outside_the_working_folder(tmp_path) -> None:
     assert "not allowed" in result["error"]
 
 
+def test_run_script_accepts_the_scripts_folder_prefix(tmp_path) -> None:
+    from app.agent.tools import make_script_tools
+
+    run_script = make_script_tools(tmp_path)[0]
+    result = run_script("sample-size-power-calculator", "scripts/power_calc.py",
+                        ["ttest-ind", "--effect", "0.5", "--power", "0.8"])
+    assert result["status"] != "error", result
+    assert '"n_group1": 64' in str(result)
+    assert run_script("paper-search", "scripts/../x.py")["status"] == "error"
+
+
 def test_catalog_matches_disk() -> None:
     catalog = load_catalog()
     assert len(catalog) == 59

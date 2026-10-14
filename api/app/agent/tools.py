@@ -64,6 +64,8 @@ def make_script_tools(workdir: Path, script_env: dict[str, str] | None = None) -
             return {"status": "error", "error": f"unknown skill '{skill_name}'"}
         if skill_name in config.UNAVAILABLE_SCRIPTS:
             return {"status": "error", "error": config.UNAVAILABLE_SCRIPTS[skill_name]}
+        # Models often copy the path from SKILL.md ("scripts/x.py"); the folder is implied.
+        script = script.removeprefix("scripts/").removeprefix("scripts\\")
         if not safe_filename(script) or not script.endswith(".py") or script.startswith("_"):
             return {"status": "error", "error": "script name is not allowed"}
         script_path = (catalog[skill_name].path / "scripts" / script).resolve()

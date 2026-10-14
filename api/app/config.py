@@ -64,5 +64,6 @@ PROVIDERS: dict[str, Provider] = {p.id: p for p in [
              ["google/gemini-2.5-flash", "anthropic/claude-sonnet-4.5", "openai/gpt-4.1"]),
     Provider("nvidia", "NVIDIA NIM", "nvidia_nim", "nvapi-…",
              "https://build.nvidia.com/settings/api-keys",
-             ["meta/llama-3.3-70b-instruct", "nvidia/llama-3.3-nemotron-super-49b-v1.5"]),
+             ["nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-3-ultra-550b-a55b",
+              "openai/gpt-oss-20b"]),
 ]}
