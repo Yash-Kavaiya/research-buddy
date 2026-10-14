@@ -84,7 +84,10 @@ def make_script_tools(workdir: Path, script_env: dict[str, str] | None = None) -
 
         env = {k: v for k, v in os.environ.items() if k not in _STRIP_ENV}
         env.update(extra_env)
-        env["PYTHONPATH"] = str(scripts_root) + os.pathsep + env.get("PYTHONPATH", "")
+        # Serverless runtimes add the installed packages to sys.path at startup rather than
+        # through PYTHONPATH, so hand the child the same path or numpy/scipy won't import.
+        inherited = [p for p in sys.path if p and os.path.isdir(p)]
+        env["PYTHONPATH"] = os.pathsep.join([str(scripts_root), *inherited, env.get("PYTHONPATH", "")])
         env["PYTHONUNBUFFERED"] = "1"
         try:
             completed = subprocess.run(
